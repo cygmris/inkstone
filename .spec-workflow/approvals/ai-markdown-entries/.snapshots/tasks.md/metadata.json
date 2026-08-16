@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/ai-markdown-entries/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-08-16T16:23:35.234Z",
+      "trigger": "initial",
+      "approvalId": "approval_1786897415234_mrrjxl3sq",
+      "approvalTitle": "ai-markdown-entries tasks"
+    }
+  ]
+}

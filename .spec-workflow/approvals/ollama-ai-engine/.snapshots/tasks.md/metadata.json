@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/ollama-ai-engine/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-08-16T16:19:57.175Z",
+      "trigger": "initial",
+      "approvalId": "approval_1786897197175_n8lb9p8d9",
+      "approvalTitle": "ollama-ai-engine tasks"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/ollama-ai-engine/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-08-16T16:18:37.780Z",
+      "trigger": "initial",
+      "approvalId": "approval_1786897117780_g7psf4psw",
+      "approvalTitle": "ollama-ai-engine design"
+    }
+  ]
+}

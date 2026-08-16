@@ -25,6 +25,7 @@ run_worker_first = [
 [[d1_databases]]
 binding = "DB"
 database_name = "inkstone-db"
+database_id = "a174d61c-3833-4277-9516-2d55929e3985"
 
 [[r2_buckets]]
 binding = "FILES"
@@ -32,6 +33,7 @@ bucket_name = "inkstone-files"
 
 [[kv_namespaces]]
 binding = "OAUTH_KV"
+id = "3ad6bb52d6d14ba68b9f11d52078ba77"
 
 [[durable_objects.bindings]]
 name = "SYNC_HUB"
@@ -54,6 +56,10 @@ binding = "AI"
 
 [triggers]
 crons = ["0 * * * *", "15,45 * * * *"]
+
+[[routes]]
+pattern = "psn-note.byjs.dev"
+custom_domain = true
 
 [vars]
 APP_NAME = "Inkstone"

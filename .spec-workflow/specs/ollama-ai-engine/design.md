@@ -1,0 +1,241 @@
+# Design Document
+
+## Overview
+
+在 Inkstone 客户端加一层「本地 Ollama 客户端」：三个纯逻辑模块（传输 / 防丢失 / 配置）
+加一个设置面板，外加 Worker 侧一行 CSP 放行。全部新代码落在新文件里。
+
+数据流是**浏览器 ↔ 用户本机 Ollama 的直连**，Worker 只做一件事：在响应头里允许这条连接。
+Worker 跑在 Cloudflare 边缘，够不到用户的 `127.0.0.1`——**不存在服务端代理这条退路**，
+所以 CSP 放行不是优化项而是唯一可行路径。
+
+## Steering Document Alignment
+
+本项目无 steering 文档（`.spec-workflow/steering/` 为空），
+以下按上游 Inkstone 既有约定对齐。
+
+### 技术约定（从代码里读出来的）
+- 客户端：React + zustand + Tailwind CSS 变量 + `lucide-react` 图标，严格 TS（`tsc -b`）
+- 状态：`src/client/store/ui.ts` 的 `useUi`，含 `toast`
+- 表单件：`src/client/components/form` 的 `Input` / `SettingRow` / `Switch`；
+  `components/primitives` 的 `Button` / `Badge` / `IconButton`；`components/feedback` 的 `LoadingBlock`
+- 文案：`src/client/lib/i18n.ts` 的 `t()`，资源在 `src/shared/locales/{en-US,zh-CN}.ts`
+- 测试：vitest（`vitest.config.ts`），单测与被测文件同目录（既有例：`src/client/lib/image.test.ts`）
+- 🔴 **注释白名单制**：`scripts/check-comments.mjs` 白名单之外的任何注释都会让
+  `npm run comments:check` 失败。本 spec 新代码**一行注释都不写**，靠命名与测试自解释
+
+### 结构约定
+- 客户端功能按 `src/client/features/<name>/` 分目录，纯逻辑放 `src/client/lib/`
+- 设置分区各占一个文件放 `src/client/features/settings/`，重的走 `lazy()`（`McpSettings` 即如此）
+
+## Code Reuse Analysis
+
+### 复用既有件
+- **`useUi.toast`**：连接测试成功/失败提示
+- **`components/form` 的 `SettingRow` / `Input` / `Switch`**：设置面板控件，保证与其他分区长得一样
+- **`components/primitives` 的 `Button` / `Badge`**：动作按钮与状态徽章
+- **`lib/i18n.ts` 的 `t()`**：所有面向用户的字符串
+- **`SettingsPanel.tsx` 的 lazy 分区模式**：照抄 `McpSettings` 的注册写法
+
+### 移植来源（不是复用，是重写）
+`/home/eason/workflow/cygmris/cikatail/Convertly` 的 `public/ai.jsx`（582 行无类型 JSX）。
+它已在生产验证过整条链路。移植策略**分两类**：
+
+| 来源函数 | 处理 |
+| --- | --- |
+| `_parseSSE` | 逻辑照搬（跨 chunk 半行、`[DONE]`、注释行、非 JSON 容错），改写为 TS |
+| `splitForChunking` | **逻辑逐行照搬**（贪心打包 + 段落→行→硬切三级降级） |
+| `detectLoss` | **逻辑逐行照搬**（双判据、比例 0.5、最小输入 200、仅首轮） |
+| `classifyError` | 重写并收窄：只保留 Ollama 相关分支，加 Safari 判定 |
+| `_streamOpenAICompat` | 重写：去掉 provider 分派、去掉 proxy transport |
+| `getAiConfig` / `_deepMergeConfig` | 重写：单一 provider，字段收窄 |
+| `_streamAnthropic` / `AI_PROXYABLE` / `aiProxyAvailable` / 多 provider | **不移植** |
+
+`splitForChunking` 与 `detectLoss` 之所以「照搬」而非「重想」：它们编码的是
+一组**只能靠实测发现的 Ollama 行为**（见下方「押的数」与需求 3）。重想一遍等于重新踩坑。
+
+### 集成点
+- **`src/worker/app.ts` 的 CSP 中间件**：`connect-src` 追加两个 loopback 端点
+- **`src/client/features/settings/SettingsPanel.tsx`**：`Section` 联合类型 + `SECTIONS` 数组 + `lazy` 导入
+- **`src/shared/locales/{en-US,zh-CN}.ts`**：新文案键
+- **无服务端路由改动、无数据库改动**
+
+## Architecture
+
+```mermaid
+graph TD
+    U[用户浏览器 psn-note.byjs.dev] -->|fetch| O["本机 Ollama<br/>http://127.0.0.1:11434"]
+    W["Cloudflare Worker<br/>src/worker/app.ts"] -->|"CSP: connect-src 放行 loopback"| U
+    P[AiSettings.tsx] --> C[lib/ai/config.ts]
+    P --> T[lib/ai/ollama.ts]
+    T --> G[lib/ai/guard.ts]
+    T -->|"POST /v1/chat/completions"| O
+    T -->|"GET /v1/models"| O
+    C -->|localStorage inkstone_ai_config_v1| U
+```
+
+### 模块划分原则
+- `ollama.ts` 只管**说 HTTP/SSE**，不认识 UI，不认识 React
+- `guard.ts` 是**纯函数**，无 IO、无全局状态 —— 因此可被完整单测覆盖
+- `config.ts` 只管**读写 localStorage 并回填默认值**
+- `AiSettings.tsx` 只管**渲染与编排**，不含协议细节
+
+## Components and Interfaces
+
+### `src/client/lib/ai/config.ts`
+- **职责**：AI 配置的类型、默认值、读写与深合并
+- **接口**：
+  ```ts
+  export interface AiConfig {
+    baseUrl: string
+    model: string
+    maxTokens: number
+    chunkChars: number
+    extraInstruction: string
+    strictConvert: boolean
+  }
+  export const AI_CONFIG_STORAGE_KEY = 'inkstone_ai_config_v1'
+  export const DEFAULT_AI_CONFIG: AiConfig
+  export function getAiConfig(): AiConfig
+  export function setAiConfig(patch: Partial<AiConfig>): AiConfig
+  ```
+- **默认值**：`baseUrl: 'http://127.0.0.1:11434/v1'`、`model: 'convertly-gemma4'`、
+  `maxTokens: 8192`、`chunkChars: 6000`、`extraInstruction: ''`、`strictConvert: true`
+- **依赖**：无
+- **说明**：`convertly-gemma4` 是本机已用 Modelfile 焊入 `PARAMETER num_ctx 16384` 的 tag。
+  选它而不是全局 `OLLAMA_CONTEXT_LENGTH`：`:11434` 被 mcp-memory-service 共用（bge-m3 + qwen2.5:7b-instruct），
+  全局改会撑大它们的 KV cache。
+
+### `src/client/lib/ai/guard.ts`
+- **职责**：内容丢失的两条判据 + 三级降级分片。纯函数，无 IO
+- **接口**：
+  ```ts
+  export interface LossReport { kind: 'truncated' | 'short'; ratio?: number }
+  export function detectLoss(input: {
+    input: string; output: string; finishReason: string | null; isFirstTurn: boolean
+  }): LossReport | null
+  export function splitForChunking(text: string, limit: number): string[]
+  ```
+- **常量**：`SHORT_OUTPUT_RATIO = 0.5`、`SHORT_OUTPUT_MIN_INPUT = 200`
+- **依赖**：无
+
+### `src/client/lib/ai/ollama.ts`
+- **职责**：与本机 Ollama 的全部对话
+- **接口**：
+  ```ts
+  export interface StreamOptions {
+    input: string
+    history?: ChatMessage[]
+    systemPrompt?: string
+    extraInstruction?: string
+    signal?: AbortSignal
+    onToken?: (delta: string) => void
+    onChunk?: (index: number, total: number) => void
+  }
+  export interface StreamResult {
+    markdown: string
+    usage: TokenUsage | null
+    finishReason: string | null
+    chunks: number
+    loss: LossReport | null
+  }
+  export function streamMarkdown(options: StreamOptions): Promise<StreamResult>
+  export function listModels(baseUrl: string, signal?: AbortSignal): Promise<string[]>
+  export function classifyAiError(error: unknown): AiErrorKind
+  export const AI_SYSTEM_PROMPT_CONVERT: string
+  export const AI_SYSTEM_PROMPT_TIDY: string
+  ```
+- **依赖**：`config.ts`、`guard.ts`
+- **`AiErrorKind`**：`'aborted' | 'offline' | 'cors' | 'unsupported-browser' | 'http' | 'unknown'`
+
+### `src/client/features/settings/AiSettings.tsx`
+- **职责**：设置分区 UI
+- **依赖**：`config.ts`、`ollama.ts`、`useUi`、`components/form`、`components/primitives`
+- **复用**：`McpSettings.tsx` 的整体骨架与视觉
+
+## Data Models
+
+### AiConfig（localStorage）
+```
+键: inkstone_ai_config_v1
+值: JSON
+  baseUrl:         string   服务地址，默认 http://127.0.0.1:11434/v1
+  model:           string   模型 tag，默认 convertly-gemma4
+  maxTokens:       number   最大输出 token，默认 8192
+  chunkChars:      number   分片长度（字符），0 = 关闭分片，默认 6000
+  extraInstruction:string   附加提示词，默认空
+  strictConvert:   boolean  强调「只转换不作答」，默认 true
+```
+读取时逐字段深合并进 `DEFAULT_AI_CONFIG`，缺字段/脏值回默认。
+
+### 不落库
+无 D1 表、无 KV、无 `/api/` 路由。这是**刻意的**：配置属于「这台浏览器」，
+跟着能不能连上本机 Ollama 走，跨设备同步反而是错的。
+
+## Error Handling
+
+### 场景
+1. **Ollama 没起**（fetch 抛 `TypeError`，且当前浏览器是 Chrome/Firefox）
+   - 处理：`classifyAiError` 归为 `offline`
+   - 用户看到：「连不上本机 Ollama，确认它在运行：`systemctl --user status ollama`」
+2. **`OLLAMA_ORIGINS` 未放行本站**（预检 403）
+   - 处理：归为 `cors`
+   - 用户看到：提示把 `https://psn-note.byjs.dev` 加进 `OLLAMA_ORIGINS` 并重启服务
+   - 🔴 `offline` 与 `cors` **在浏览器里长得一样**（都是 opaque 的 fetch 失败）。
+     区分办法：预检被拒时 fetch 抛 `TypeError` 且**控制台有 CORS 报错**，脚本读不到。
+     因此文案**同时列出两种可能**，不假装能精确二选一 —— 谎报一个精确原因比含糊更糟
+3. **Safari**（HTTPS 页面不允许调 `http://localhost`）
+   - 处理：UA 判定为 Safari 且非 Chrome 时归为 `unsupported-browser`
+   - 用户看到：明确说明本功能需要 Chrome 或 Firefox
+4. **HTTP 4xx/5xx**（模型不存在等）
+   - 处理：归为 `http`，带上状态码与响应体前 240 字符
+5. **用户中止**
+   - 处理：归为 `aborted`，不弹错误提示
+6. **内容丢失**（需求 3）
+   - 处理：`streamMarkdown` 在结果里带 `loss`，由调用方展示告警
+   - 用户看到：本 spec 只在设置面板不展示（无转换入口）；展示由 `ai-markdown-entries` 负责
+
+## Testing Strategy
+
+### 单元测试（vitest）
+- `src/client/lib/ai/guard.test.ts`
+  - `detectLoss`：`finish_reason === 'length'` → truncated；短输出 → short；
+    输入短于 200 字符 → null；非首轮 → null；正常长度 → null
+  - `splitForChunking`：limit=0 关闭；正好等于 limit 不切；按段落切；
+    单段超长按行切；单行超长硬切；空白片过滤
+- `src/client/lib/ai/config.test.ts`
+  - 空 localStorage → 默认值；部分字段 → 深合并；脏 JSON → 默认值；`setAiConfig` 回读一致
+- `src/client/lib/ai/ollama.test.ts`
+  - SSE 解析：**一个 `data:` 行被切成两个 chunk**（本 spec 最关键的一条）；
+    `[DONE]`；注释行 `:`；非 JSON 行；无尾换行的末行
+- 🔴 **每条断言做变异测试**：故意改坏对应实现，确认测试转红，再改回。
+  不做这一步，「测试绿」不构成证据（新写的断言可能根本没有能力失败）
+
+### 集成 / 端到端
+- `npm run typecheck`、`npm run test:unit`、`npm run i18n:check`、`npm run comments:check` 全绿
+- `npm run deploy:check`（dry-run）确认 Worker 能构建
+- **线上人工验收**（需部署，本 spec 标 `[~]`）：
+  Chrome 打开 https://psn-note.byjs.dev → 设置 → AI → 点「测试连接」→
+  模型下拉出现本机模型列表。这一步验的是 CSP + CORS + 传输三层同时通，
+  本地开发环境验不了（本地是 http://localhost，CSP 与 CORS 条件都不同）
+
+## 本设计押的数（Assumptions to be checked）
+
+| 押的 | 值 |
+| --- | --- |
+| 新增文件 | 5 个（config/guard/ollama + 3 个测试文件中的 3 个 + AiSettings）≈ 4 源 + 3 测试 |
+| 改动既有文件 | 3 个（app.ts、SettingsPanel.tsx、两个 locales 算 1 组）实际 4 个文件 |
+| 新增代码量 | 约 500–650 行（含测试） |
+| 任务数 | 7 |
+| 押：CSP 放行 loopback 后 Chrome 不再拦 | 未直接实测。依据：Chrome 把 `127.0.0.1` 视为 potentially trustworthy，Convertly 从 HTTPS 站直连本机 Ollama 已在生产跑通（那站无 CSP）。**本处新增的未知量只有 CSP 一项** |
+| 押：Chrome 的 Private Network Access 预检不会额外拦截 | 未实测。依据同上——Convertly 当前可用。若 Chrome 后续强制 PNA，需要 Ollama 侧回 `Access-Control-Allow-Private-Network`，届时本功能会整体失效且**我们改不了**（要等上游 Ollama） |
+| 押：设置面板 lazy 分区能照抄 McpSettings 而不动共享组件 | 已读代码确认结构，未实跑 |
+
+## Constitution Gates（宪法自检）
+
+- [x] 简洁门：不做多 provider、不做代理回退、不做多轮精修——需求里明确排除
+- [x] 反抽象门：只有一个 provider，因此**不引入 provider 接口层**；
+      `streamMarkdown` 直接说 OpenAI 兼容协议，不做策略分派
+- [x] 复用门：已读 `McpSettings` / `components/form` / `useUi`，UI 全部复用既有件；
+      协议与防丢失逻辑从 Convertly 移植而非重写
+- [x] 精准门：既有文件只动 CSP 一行、设置面板注册、文案键；工具栏、编辑器、Worker 路由一律不碰
