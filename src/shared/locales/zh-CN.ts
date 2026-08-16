@@ -680,7 +680,7 @@ export const ZH_CN_MESSAGES = {
     "settings.ai_provider_ollama": "本地 Ollama",
     "settings.ai_provider_cloudflare": "Cloudflare",
     "settings.ai_cloud_privacy": "笔记内容会发送到 Cloudflare 的 Workers AI，不再只留在本机。对某篇笔记介意的话，切回本地 Ollama。",
-    "settings.ai_cloud_quota": "走每天 10,000 Neurons 的免费额度，UTC 00:00 重置，并与本笔记本的语义搜索共用。用完不会计费，只是请求会失败到重置为止。这些模型在作答前还会花 token 在看不见的思维链上，所以很短的回复也可能耗掉几百个 token。",
+    "settings.ai_cloud_quota": "走每天 10,000 Neurons 的免费额度，UTC 00:00 重置，并与本笔记本的语义搜索共用。用完不会计费，只是请求会失败到重置为止。模型允许的情况下已关掉看不见的思维链，实测能把单次请求的开销降到约二十分之一。",
     "settings.ai_cloud_model_hint": "这些都在免费额度内。越大的模型消耗额度越快。",
     "settings.ai_error_quota": "Cloudflare 的每日免费 AI 额度已用尽。它在 UTC 00:00 重置，并与本笔记本的语义搜索共用。想现在继续用，可以切到本地 Ollama。",
     "settings.ai_test_connection": "测试连接",

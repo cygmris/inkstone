@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { CLOUDFLARE_AI_MODELS, DEFAULT_CLOUDFLARE_MODEL, isAllowedCloudflareModel } from './ai-models'
+import {
+  CLOUDFLARE_AI_MODELS,
+  DEFAULT_CLOUDFLARE_MODEL,
+  isAllowedCloudflareModel,
+  supportsThinkingToggle,
+} from './ai-models'
 
 const PAID_ONLY_MODELS = [
   '@cf/moonshotai/kimi-k2.6',
@@ -55,5 +60,28 @@ describe('isAllowedCloudflareModel', () => {
     expect(isAllowedCloudflareModel(undefined)).toBe(false)
     expect(isAllowedCloudflareModel(42)).toBe(false)
     expect(isAllowedCloudflareModel({ id: '@cf/openai/gpt-oss-20b' })).toBe(false)
+  })
+})
+
+describe('supportsThinkingToggle', () => {
+  it('is off for Mistral, whose tokenizer rejects chat_template_kwargs with a 400', () => {
+    expect(supportsThinkingToggle('@cf/mistralai/mistral-small-3.1-24b-instruct')).toBe(false)
+  })
+
+  it('is on for the models measured to accept it', () => {
+    expect(supportsThinkingToggle('@cf/qwen/qwen3-30b-a3b-fp8')).toBe(true)
+    expect(supportsThinkingToggle('@cf/google/gemma-4-26b-a4b-it')).toBe(true)
+    expect(supportsThinkingToggle('@cf/meta/llama-3.3-70b-instruct-fp8-fast')).toBe(true)
+  })
+
+  it('is off for anything not on the list', () => {
+    expect(supportsThinkingToggle('@cf/some/unknown-model')).toBe(false)
+    expect(supportsThinkingToggle('')).toBe(false)
+  })
+
+  it('declares the flag on every listed model, so a new entry cannot silently default', () => {
+    for (const model of CLOUDFLARE_AI_MODELS) {
+      expect(typeof model.supportsThinkingToggle).toBe('boolean')
+    }
   })
 })

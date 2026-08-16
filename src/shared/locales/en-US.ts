@@ -679,7 +679,7 @@ export const EN_US_MESSAGES = {
     "settings.ai_provider_ollama": "Local Ollama",
     "settings.ai_provider_cloudflare": "Cloudflare",
     "settings.ai_cloud_privacy": "Your note text is sent to Cloudflare's Workers AI. It does not stay on your machine. Switch back to local Ollama if that matters for a particular note.",
-    "settings.ai_cloud_quota": "Runs on the free allowance of 10,000 Neurons per day, which resets at 00:00 UTC and is shared with this notebook's semantic search. Nothing is billed when it runs out — requests simply fail until the reset. These models also spend tokens on hidden reasoning before they answer, so a short reply can still cost a few hundred tokens.",
+    "settings.ai_cloud_quota": "Runs on the free allowance of 10,000 Neurons per day, which resets at 00:00 UTC and is shared with this notebook's semantic search. Nothing is billed when it runs out — requests simply fail until the reset. Hidden reasoning is switched off where the model allows it, which cuts the cost of a request by roughly twentyfold.",
     "settings.ai_cloud_model_hint": "All of these run within the free allowance. The larger ones consume it faster.",
     "settings.ai_error_quota": "Cloudflare's free daily AI allowance is used up. It resets at 00:00 UTC, and it is shared with this notebook's semantic search. Switch to local Ollama to keep working now.",
     "settings.ai_test_connection": "Test connection",

@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { isAllowedCloudflareModel } from '@shared/ai-models'
+import { isAllowedCloudflareModel, supportsThinkingToggle } from '@shared/ai-models'
 import type { AppBindings } from '../env'
 import { ApiError } from '../lib/errors'
 import { JSON_BODY_LIMITS, readJson } from '../lib/request'
@@ -75,6 +75,8 @@ aiRoutes.post('/chat', async (c) => {
     upstream = await ai.run<ReadableStream<Uint8Array>>(body.model, {
       messages,
       stream: true,
+      reasoning_effort: 'low',
+      ...(supportsThinkingToggle(body.model) ? { chat_template_kwargs: { enable_thinking: false } } : {}),
       ...(maxTokens === undefined ? {} : { max_tokens: maxTokens }),
     })
   } catch (error) {

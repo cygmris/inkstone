@@ -69,3 +69,16 @@
   - _Leverage: 无_
   - _Requirements: 1.6, 2.1, 2.3, 4.1_
   - _Prompt: Implement the task for spec cloudflare-ai-provider, first run spec-workflow-guide to get the workflow guide then implement the task: Role: QA 工程师 | Task: 部署后逐条跑 A–E 并记录实际结果 | Restrictions: 验证前必须清 Service Worker；B 项必须记录真实观测到的 chunk 形状，不许写「应该是 X」；E 项没撞到就如实写「未撞到，未验证」，不许编造 | Success: A–D 有明确结论；B 项记录了实测形状_
+
+- [x] 8. 关掉思维链（实测省 20 倍额度）
+  - File: src/shared/ai-models.ts、src/worker/routes/ai.ts、locales×2、对应测试
+  - 实测：`chat_template_kwargs: {enable_thinking: false}` 让 qwen3 的 completion_tokens
+    从 117 降到 3、neurons 从 3.63 降到 0.17（**21 倍**）；gemma-4 / llama-4-scout /
+    llama-3.3-70b 同样归零
+  - ⚠️ **mistral 会因此报错**：`chat_template is not supported for Mistral tokenizers`，
+    所以不能无条件发。按模型打标记
+  - `reasoning_effort: 'low'` 所有模型都接受（含 mistral），对 gpt-oss 有效（64→19 token），可无条件发
+  - Purpose: 免费额度是硬上限，90% 花在用户看不见的思维链上就是白烧
+  - _Leverage: src/shared/ai-models.ts 的清单；src/worker/routes/ai.ts_
+  - _Requirements: 4.2_
+  - _Prompt: Implement the task for spec cloudflare-ai-provider, first run spec-workflow-guide to get the workflow guide then implement the task: Role: 后端工程师 | Task: 按模型条件下发关思维链参数 | Restrictions: 绝不无条件发 chat_template_kwargs——mistral 会 400；标记要放在共用清单里当数据，不要在路由里写 if 模型名；不加注释 | Success: 单测覆盖「mistral 不带该参数、其余带」；线上实测 token 数下降_
