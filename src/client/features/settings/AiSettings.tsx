@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Plug } from 'lucide-react'
-import { Input, SettingRow, Switch, Textarea } from '../../components/form'
+import { Input, Select, SettingRow, Switch, Textarea } from '../../components/form'
 import { Badge, Button } from '../../components/primitives'
 import { DEFAULT_AI_CONFIG, getAiConfig, setAiConfig, type AiConfig } from '../../lib/ai/config'
 import { classifyAiError, listModels } from '../../lib/ai/ollama'
@@ -71,6 +71,10 @@ export function AiSettings() {
   }
 
   const knownModels = probe.state === 'ok' ? probe.models : []
+  const resolvedModel = knownModels.includes(config.model)
+    ? config.model
+    : (knownModels.find((model) => model === `${config.model}:latest`) ?? config.model)
+  const modelChoices = knownModels.includes(resolvedModel) ? knownModels : [resolvedModel, ...knownModels].filter(Boolean)
 
   return (
     <div className="space-y-6">
@@ -90,18 +94,26 @@ export function AiSettings() {
         </SettingRow>
 
         <SettingRow title={t('settings.ai_model')} description={t('settings.ai_model_hint')}>
-          <Input
-            value={config.model}
-            list="inkstone-ai-models"
-            spellCheck={false}
-            className="w-full md:w-[280px]"
-            onChange={(event) => update({ model: event.target.value })}
-          />
-          <datalist id="inkstone-ai-models">
-            {knownModels.map((model) => (
-              <option key={model} value={model} />
-            ))}
-          </datalist>
+          {knownModels.length > 0 ? (
+            <Select
+              value={resolvedModel}
+              className="w-full md:w-[280px]"
+              onChange={(event) => update({ model: event.target.value })}
+            >
+              {modelChoices.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <Input
+              value={config.model}
+              spellCheck={false}
+              className="w-full md:w-[280px]"
+              onChange={(event) => update({ model: event.target.value })}
+            />
+          )}
         </SettingRow>
 
         <SettingRow title={t('settings.ai_chunk_chars')} description={t('settings.ai_chunk_chars_hint')}>
