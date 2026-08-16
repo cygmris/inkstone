@@ -129,24 +129,38 @@ export function AiPanel({ onClose }: { onClose: () => void }) {
       footer={
         <div className="flex flex-wrap items-center justify-end gap-2">
           {running ? (
-            <Button type="button" variant="secondary" onClick={stop}>
-              <Square size={14} />
+            <Button type="button" variant="secondary" icon={<Square size={13} />} onClick={stop}>
               {t('ai.stop')}
             </Button>
           ) : (
-            <Button type="button" variant="secondary" onClick={() => void run()} disabled={!input.trim()}>
-              <Wand2 size={14} />
+            <Button
+              type="button"
+              variant="secondary"
+              icon={<Wand2 size={13} />}
+              onClick={() => void run()}
+              disabled={!input.trim()}
+            >
               {output ? t('ai.run_again') : t('ai.run')}
             </Button>
           )}
           {request.mode === 'tidy' ? (
-            <Button type="button" onClick={acceptAsReplacement} disabled={running || !output}>
-              <Replace size={14} />
+            <Button
+              type="button"
+              variant="primary"
+              icon={<Replace size={13} />}
+              onClick={acceptAsReplacement}
+              disabled={running || !output}
+            >
               {t('ai.replace_note')}
             </Button>
           ) : (
-            <Button type="button" onClick={() => void acceptAsNewNote()} disabled={running || !output}>
-              <FilePlus2 size={14} />
+            <Button
+              type="button"
+              variant="primary"
+              icon={<FilePlus2 size={13} />}
+              onClick={() => void acceptAsNewNote()}
+              disabled={running || !output}
+            >
               {t('ai.create_note')}
             </Button>
           )}
@@ -171,11 +185,12 @@ export function AiPanel({ onClose }: { onClose: () => void }) {
               <Button
                 type="button"
                 variant="secondary"
+                size="sm"
+                icon={<Settings2 size={13} />}
                 onClick={() => {
                   openPanel('settings')
                 }}
               >
-                <Settings2 size={14} />
                 {t('ai.open_settings')}
               </Button>
             </div>

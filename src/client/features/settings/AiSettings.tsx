@@ -142,15 +142,19 @@ export function AiSettings() {
       </div>
 
       <div className="space-y-2">
-        <Button type="button" onClick={() => void testConnection()} disabled={probe.state === 'testing'}>
-          <Plug size={14} />
+        <Button
+          type="button"
+          icon={<Plug size={13} />}
+          loading={probe.state === 'testing'}
+          onClick={() => void testConnection()}
+        >
           {probe.state === 'testing' ? t('settings.ai_testing') : t('settings.ai_test_connection')}
         </Button>
 
         {probe.state === 'ok' && (
           <div className="flex flex-wrap items-center gap-2 text-[12px] text-[var(--text-secondary)]">
             <Badge tone="success">
-              <CheckCircle2 size={12} />
+              <CheckCircle2 size={12} className="mr-1 inline-block align-[-2px]" />
               {t('settings.ai_connected', { count: probe.models.length })}
             </Badge>
             {probe.models.length === 0 && <span>{t('settings.ai_no_models')}</span>}
