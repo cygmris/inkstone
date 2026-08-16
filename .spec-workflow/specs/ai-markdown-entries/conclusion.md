@@ -20,7 +20,11 @@
 | 接入点三处 + 编辑器注册一处 | `store/ui.ts`、`features/shell/AppShell.tsx`、`features/command/CommandPalette.tsx`、`features/workspace/Workspace.tsx` |
 | 中英文案 24 组 | `src/shared/locales/{en-US,zh-CN}.ts` |
 
-**`EditorToolbar.tsx` 一个字未动**（需求 5.3）。
+~~**`EditorToolbar.tsx` 一个字未动**（需求 5.3）。~~
+**需求 5.3 已由用户主动作废**：把两个入口全藏在命令面板里的代价是用户找不到
+（原话「没看到按钮呀」）。用户要求「按现有风格加个按钮在编辑器里」，
+遂在工具栏末尾加了一个 ✨ 按钮，并把触发逻辑抽成 `features/ai/open-tidy.ts`
+供命令面板与工具栏共用。改动面因此从 6 个既有文件变成 7 个。
 
 ## 验收证据
 

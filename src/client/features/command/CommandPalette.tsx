@@ -15,8 +15,8 @@ import { createContextualNote, useNotes } from '../../store/notes';
 import { folderPathLabel, openFolderView } from '../../lib/folders';
 import { useSession } from '../../store/session';
 import { t, useLocale } from "../../lib/i18n";
-import { getEditorSelection } from '../ai/active-editor';
-import { WHOLE_NOTE_RANGE, setAiPanelRequest } from '../ai/request';
+import { openAiTidyForNote } from '../ai/open-tidy';
+import { setAiPanelRequest } from '../ai/request';
 interface Item {
     id: string;
     kind: 'command' | 'note' | 'tag' | 'folder';
@@ -151,14 +151,7 @@ export function CommandPalette({ onClose }: {
                         label: t("command.ai_tidy_current_note"),
                         icon: <Wand2 size={14}/>,
                         group: t("common.current_note"),
-                        run: () => {
-                            const selection = getEditorSelection();
-                            const body = useNotes.getState().contents[activeNote.id] ?? '';
-                            setAiPanelRequest(selection
-                                ? { mode: 'tidy', input: selection.text, target: { noteId: activeNote.id, from: selection.from, to: selection.to, originalText: selection.text } }
-                                : { mode: 'tidy', input: body, target: { noteId: activeNote.id, from: WHOLE_NOTE_RANGE, to: WHOLE_NOTE_RANGE, originalText: body } });
-                            openPanel('ai');
-                        },
+                        run: () => openAiTidyForNote(activeNote.id),
                     },
                     {
                         id: 'cmd-delete',

@@ -1064,6 +1064,7 @@ export const EN_US_MESSAGES = {
     "workspace.definition_list": "Definition list",
     "workspace.details_block": "Details block",
     "workspace.differences_from_current_content": "Differences from current content",
+    "workspace.ai_tidy": "Tidy with AI",
     "workspace.divider": "Divider",
     "workspace.edit_only": "Edit only",
     "workspace.enhanced_code_block": "Enhanced code block",

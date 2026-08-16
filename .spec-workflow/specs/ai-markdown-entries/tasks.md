@@ -91,3 +91,14 @@
   - _Leverage: 既有的拒绝写回路径与 toast；CommandPalette 里已有 selection.text 与整篇正文_
   - _Requirements: 2.1, 3.4_
   - _Prompt: Implement the task for spec ai-markdown-entries, first run spec-workflow-guide to get the workflow guide then implement the task: Role: 前端工程师 | Task: 给 tidy 写回加原文比对，满足需求 2.1/3.4 | Restrictions: 比对逻辑要抽成纯函数以便单测，并做变异测试确认会转红；不匹配时不得静默放弃结果——要保留在界面上供用户复制；文案中英双语；不加注释 | Success: 单测覆盖「正文未变可写回」「选区处内容变了拒绝」「整篇变了拒绝」并通过变异测试_
+
+- [x] 9. 编辑器工具栏加可见的「AI 整理」按钮
+  - File: src/client/features/ai/open-tidy.ts（新建）、features/workspace/EditorToolbar.tsx（修改）、
+    features/command/CommandPalette.tsx（改为调用共享函数）、locales×2
+  - 背景：原设计把两个入口全放命令面板以避免改工具栏，代价是**用户实际找不到**（用户原话「没看到按钮呀」）
+  - ⚠️ **需求 5.3「EditorToolbar 不被修改」由用户主动放弃**，不是我单方面放宽
+  - 触发逻辑抽成 open-tidy.ts，命令面板与工具栏共用，避免两个入口各自漂移
+  - Purpose: 功能藏在命令面板里等于没有
+  - _Leverage: EditorToolbar 既有的 Divider / ToolButton；features/ai/{active-editor,request}_
+  - _Requirements: 3.1, 3.2_
+  - _Prompt: Implement the task for spec ai-markdown-entries, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React 前端工程师 | Task: 在编辑器工具栏加 AI 整理按钮并抽出共享触发逻辑 | Restrictions: 必须复用工具栏自己的 Divider/ToolButton，不得引入新样式；两个入口必须共用同一份实现；不加注释 | Success: 打开笔记后按钮出现、点击带出整篇正文、有选中时只带选中段_

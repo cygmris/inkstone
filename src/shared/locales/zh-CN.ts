@@ -1065,6 +1065,7 @@ export const ZH_CN_MESSAGES = {
     "workspace.definition_list": "定义列表",
     "workspace.details_block": "折叠内容",
     "workspace.differences_from_current_content": "与当前内容的差异",
+    "workspace.ai_tidy": "AI 整理",
     "workspace.divider": "分隔线",
     "workspace.edit_only": "仅编辑",
     "workspace.enhanced_code_block": "增强代码块",
