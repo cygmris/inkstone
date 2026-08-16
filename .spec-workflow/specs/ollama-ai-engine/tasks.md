@@ -1,6 +1,6 @@
 # Tasks Document
 
-- [ ] 1. 放开 CSP 的 connect-src 到本机 loopback
+- [x] 1. 放开 CSP 的 connect-src 到本机 loopback
   - File: src/worker/app.ts（修改既有，约 1 行）
   - 在 CSP 字符串里把 `connect-src 'self'` 改为 `connect-src 'self' http://127.0.0.1:11434 http://localhost:11434`
   - 两个端点写死，不从配置或用户输入取值
@@ -9,7 +9,7 @@
   - _Requirements: 1.1, 1.2, 1.4_
   - _Prompt: Implement the task for spec ollama-ai-engine, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Cloudflare Workers 安全工程师 | Task: 修改 src/worker/app.ts 的 CSP 响应头，让 connect-src 除 'self' 外额外允许 http://127.0.0.1:11434 与 http://localhost:11434，满足需求 1.1/1.2/1.4 | Restrictions: 只改这一条指令，其他 CSP 指令与其他安全响应头一律不动；端点必须硬编码，绝不接受配置或用户输入拼接；不加任何注释（npm run comments:check 是白名单制） | Success: npm run typecheck 通过；npm run comments:check 通过；本地 npm run dev 起站后响应头里 connect-src 含两个 loopback 端点_
 
-- [ ] 2. AI 配置模块与单测
+- [x] 2. AI 配置模块与单测
   - File: src/client/lib/ai/config.ts（新建）、src/client/lib/ai/config.test.ts（新建）
   - 定义 AiConfig 类型、DEFAULT_AI_CONFIG、getAiConfig/setAiConfig，localStorage 键 inkstone_ai_config_v1
   - 默认：baseUrl `http://127.0.0.1:11434/v1`、model `convertly-gemma4`、maxTokens 8192、chunkChars 6000、extraInstruction ''、strictConvert true
@@ -19,7 +19,7 @@
   - _Requirements: 4.5, 4.6, 5.1_
   - _Prompt: Implement the task for spec ollama-ai-engine, first run spec-workflow-guide to get the workflow guide then implement the task: Role: TypeScript 开发者 | Task: 新建 src/client/lib/ai/config.ts 实现 AiConfig 类型与 localStorage 持久化（键 inkstone_ai_config_v1，深合并默认值），默认模型必须是 convertly-gemma4 而非 gemma4:e4b（前者焊入了 num_ctx 16384），满足需求 4.5/4.6/5.1；同时写 config.test.ts | Restrictions: 不得写入任何 /api/ 路由或数据库；不加注释；严格 TS 无 any；localStorage 不可用时不得抛异常 | Success: npm run test:unit 中该文件全部用例通过（空存储/部分字段/脏 JSON/回读一致）；npm run typecheck 通过_
 
-- [ ] 3. 防丢失模块 guard.ts 与单测（本 spec 的核心风险项）
+- [x] 3. 防丢失模块 guard.ts 与单测（本 spec 的核心风险项）
   - File: src/client/lib/ai/guard.ts（新建）、src/client/lib/ai/guard.test.ts（新建）
   - detectLoss 双判据：finish_reason === 'length' → truncated；首轮且输入 ≥ 200 字符且输出 < 输入 × 0.5 → short
   - splitForChunking 三级降级：段落（`\n{2,}`）→ 行 → 硬切，贪心打包，limit ≤ 0 关闭，过滤纯空白片
@@ -29,7 +29,7 @@
   - _Requirements: 3.1, 3.2, 3.4, 3.5_
   - _Prompt: Implement the task for spec ollama-ai-engine, first run spec-workflow-guide to get the workflow guide then implement the task: Role: 前端工程师，擅长纯函数与边界条件 | Task: 新建 src/client/lib/ai/guard.ts，把 Convertly public/ai.jsx 的 detectLoss 与 splitForChunking 逐条移植为 TS 纯函数（常量 SHORT_OUTPUT_RATIO=0.5、SHORT_OUTPUT_MIN_INPUT=200），满足需求 3.1/3.2/3.4/3.5；同时写 guard.test.ts | Restrictions: 不得重新设计判据或分片策略——这些编码的是只能靠实测发现的 Ollama 行为；纯函数不得有 IO 或全局状态；不加注释 | Success: 单测覆盖 truncated/short/输入过短/非首轮/正常 五种 detectLoss 情形与 limit=0、恰好等于 limit、段落切、单段超长按行切、单行超长硬切 五种分片情形，全部通过_
 
-- [ ] 4. 对 guard 与 config 单测做变异测试
+- [x] 4. 对 guard 与 config 单测做变异测试
   - File: src/client/lib/ai/guard.ts、config.ts（临时改坏后还原，最终无改动）
   - 逐条断言：故意改坏对应实现（如把 0.5 改成 0、把 finish_reason 判定去掉、把段落分隔正则改成不匹配），确认对应用例转红，再还原
   - 把做过哪些变异、各自转红情况写进 log-implementation 的 verification
@@ -38,7 +38,7 @@
   - _Requirements: 3.6_
   - _Prompt: Implement the task for spec ollama-ai-engine, first run spec-workflow-guide to get the workflow guide then implement the task: Role: 测试工程师 | Task: 对任务 2、3 写的每条关键断言做变异测试，逐个改坏实现确认测试转红后还原，满足需求 3.6 | Restrictions: 变异必须逐个做并逐个还原，不得批量改；最终工作树必须与变异前逐字节一致（git diff 为空）；不得为了让测试转红而修改测试 | Success: 每条关键断言都有一次确认转红的记录；git diff 显示实现文件无残留改动；npm run test:unit 全绿_
 
-- [ ] 5. Ollama 传输模块 ollama.ts 与 SSE 单测
+- [x] 5. Ollama 传输模块 ollama.ts 与 SSE 单测
   - File: src/client/lib/ai/ollama.ts（新建）、src/client/lib/ai/ollama.test.ts（新建）
   - streamMarkdown：POST /v1/chat/completions，stream: true，按 chunkChars 分片（仅首轮），逐 token 回调，结束时算 detectLoss 并把 usage/finishReason/loss 一并返回
   - SSE 解析：跨 chunk 半行、`[DONE]`、`:` 注释行、非 JSON 行、无尾换行末行
@@ -50,7 +50,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 3.3, 4.4_
   - _Prompt: Implement the task for spec ollama-ai-engine, first run spec-workflow-guide to get the workflow guide then implement the task: Role: 前端工程师，擅长 fetch streaming 与 SSE | Task: 新建 src/client/lib/ai/ollama.ts 实现 streamMarkdown / listModels / classifyAiError 与系统提示词常量，SSE 解析逻辑照搬 Convertly 的 _parseSSE，满足需求 2.1–2.4、3.3、4.4；同时写 ollama.test.ts 重点覆盖跨 chunk 半行 | Restrictions: 只支持 Ollama 一个 provider，不得引入 provider 接口层或策略分派；不得实现 Anthropic/OpenAI/代理回退；classifyAiError 对 offline 与 cors 不得假装能精确二选一（浏览器里两者同形），文案要同时列出两种可能；不加注释 | Success: SSE 跨 chunk 用例通过；npm run typecheck 通过；AbortSignal 能立即中止_
 
-- [ ] 6. AI 设置面板与文案
+- [x] 6. AI 设置面板与文案
   - File: src/client/features/settings/AiSettings.tsx（新建）、src/client/features/settings/SettingsPanel.tsx（修改）、src/shared/locales/en-US.ts 与 zh-CN.ts（修改）
   - 面板：服务地址、模型（下拉 + 手填）、最大输出 token、分片长度、附加提示词、strictConvert 开关、「测试连接」按钮
   - 测试连接成功后把 /v1/models 结果填进模型下拉；失败按 classifyAiError 给对应文案
@@ -61,7 +61,7 @@
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.7_
   - _Prompt: Implement the task for spec ollama-ai-engine, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React 前端工程师 | Task: 新建 AiSettings.tsx 并在 SettingsPanel.tsx 注册为 lazy 分区，加中英文案，满足需求 4.1–4.4、4.7 | Restrictions: 必须复用 components/form 与 primitives 的既有控件，不得自造样式体系；对 SettingsPanel.tsx 的改动限制在 Section 类型、SECTIONS 数组、lazy 导入三处；所有面向用户的字符串必须走 t() 且中英双语齐全；不加注释 | Success: npm run i18n:check 通过；npm run typecheck 通过；npm run comments:check 通过；本地起站后设置里出现 AI 分区且控件渲染正常_
 
-- [ ] 7. 全量门禁与部署前检查
+- [x] 7. 全量门禁与部署前检查
   - File: 无新增（跑命令）
   - 依次跑 npm run typecheck、npm run test:unit、npm run i18n:check、npm run comments:check、npm run deploy:check
   - 把每条命令的实际输出记进 log-implementation 的 verification
