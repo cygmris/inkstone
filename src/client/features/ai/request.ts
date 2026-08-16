@@ -4,6 +4,7 @@ export interface AiPanelTarget {
   noteId: string
   from: number
   to: number
+  originalText: string
 }
 
 export interface AiPanelRequest {
@@ -28,4 +29,14 @@ export function takeAiPanelRequest(): AiPanelRequest | null {
 
 export function isWholeNote(target: AiPanelTarget): boolean {
   return target.from === WHOLE_NOTE_RANGE && target.to === WHOLE_NOTE_RANGE
+}
+
+export function isTargetUnchanged(current: string, target: AiPanelTarget): boolean {
+  if (isWholeNote(target)) return current === target.originalText
+  return current.slice(target.from, target.to) === target.originalText
+}
+
+export function applyToTarget(current: string, target: AiPanelTarget, replacement: string): string {
+  if (isWholeNote(target)) return replacement
+  return current.slice(0, target.from) + replacement + current.slice(target.to)
 }

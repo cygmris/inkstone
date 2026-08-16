@@ -79,3 +79,15 @@
   - _Leverage: 无_
   - _Requirements: 1.3, 1.4, 1.5, 2.3, 3.3, 3.4, 3.5, 4.1_
   - _Prompt: Implement the task for spec ai-markdown-entries, first run spec-workflow-guide to get the workflow guide then implement the task: Role: QA 工程师 | Task: 部署后在 Chrome 上逐条跑 A–F 六项验收并记录实际结果 | Restrictions: 验证前必须清 Service Worker，否则跑的是旧 bundle 会得出错误结论；C 项若撤销不成立，必须如实记录并按备案改，不得含糊带过；未全部通过就保持 [~] 并写明 Blocked 原因 | Success: 六项都有明确结论并记入实现日志_
+
+- [x] 8. 修复 tidy 写回的偏移量过期问题（静默改坏笔记）
+  - File: src/client/features/ai/request.ts、AiPanel.tsx、features/command/CommandPalette.tsx、locales×2、request.test.ts
+  - 缺陷：`target.from/to` 在命令触发时捕获，`current` 在点「替换」时才读。中间隔着几十秒生成，
+    而 Inkstone 有实时同步（SYNC_HUB）+ 离线写队列，`applySync` 可能改了正文 →
+    选区模式会把结果拼到错位置，整篇模式会覆盖掉并发编辑，**两者都静默**
+  - 改法：`AiPanelTarget` 加 `originalText`；写回前比对
+    （选区：`current.slice(from,to) === originalText`；整篇：`current === originalText`），不匹配则拒绝写回并保留结果
+  - Purpose: 需求 2.1 要求丢失必须可见。这是本 spec 自己引入的一条静默丢失路径
+  - _Leverage: 既有的拒绝写回路径与 toast；CommandPalette 里已有 selection.text 与整篇正文_
+  - _Requirements: 2.1, 3.4_
+  - _Prompt: Implement the task for spec ai-markdown-entries, first run spec-workflow-guide to get the workflow guide then implement the task: Role: 前端工程师 | Task: 给 tidy 写回加原文比对，满足需求 2.1/3.4 | Restrictions: 比对逻辑要抽成纯函数以便单测，并做变异测试确认会转红；不匹配时不得静默放弃结果——要保留在界面上供用户复制；文案中英双语；不加注释 | Success: 单测覆盖「正文未变可写回」「选区处内容变了拒绝」「整篇变了拒绝」并通过变异测试_

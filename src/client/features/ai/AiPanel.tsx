@@ -9,7 +9,7 @@ import { t } from '../../lib/i18n'
 import { useNotes } from '../../store/notes'
 import { useUi } from '../../store/ui'
 import { readTextFile } from './read-text-file'
-import { isWholeNote, takeAiPanelRequest, type AiPanelRequest } from './request'
+import { applyToTarget, isTargetUnchanged, takeAiPanelRequest, type AiPanelRequest } from './request'
 
 function lossMessage(loss: LossReport): string {
   if (loss.kind === 'truncated') return t('ai.loss_truncated')
@@ -94,10 +94,11 @@ export function AiPanel({ onClose }: { onClose: () => void }) {
       toast({ title: t('ai.target_note_gone'), tone: 'danger' })
       return
     }
-    const next = isWholeNote(target)
-      ? output
-      : current.slice(0, target.from) + output + current.slice(target.to)
-    editContent(target.noteId, next)
+    if (!isTargetUnchanged(current, target)) {
+      toast({ title: t('ai.target_note_changed'), tone: 'danger' })
+      return
+    }
+    editContent(target.noteId, applyToTarget(current, target, output))
     onClose()
   }
 

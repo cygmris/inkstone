@@ -648,6 +648,7 @@ export const EN_US_MESSAGES = {
     "ai.create_note": "Create note",
     "ai.replace_note": "Replace",
     "ai.open_settings": "Open AI settings",
+    "ai.target_note_changed": "The note changed while the model was working, so the result was not written back — writing it now would land in the wrong place or overwrite the newer edit. Copy the result from above and apply it yourself, or run it again.",
     "ai.target_note_gone": "That note is no longer open, so the result was not written back. Copy it from above if you still want it.",
     "ai.loss_truncated": "The model hit its output limit, so the result is cut short.",
     "ai.loss_short": "The result is only about {percent}% the length of the input, which usually means part of the input never reached the model.",

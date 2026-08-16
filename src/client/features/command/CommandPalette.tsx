@@ -155,8 +155,8 @@ export function CommandPalette({ onClose }: {
                             const selection = getEditorSelection();
                             const body = useNotes.getState().contents[activeNote.id] ?? '';
                             setAiPanelRequest(selection
-                                ? { mode: 'tidy', input: selection.text, target: { noteId: activeNote.id, from: selection.from, to: selection.to } }
-                                : { mode: 'tidy', input: body, target: { noteId: activeNote.id, from: WHOLE_NOTE_RANGE, to: WHOLE_NOTE_RANGE } });
+                                ? { mode: 'tidy', input: selection.text, target: { noteId: activeNote.id, from: selection.from, to: selection.to, originalText: selection.text } }
+                                : { mode: 'tidy', input: body, target: { noteId: activeNote.id, from: WHOLE_NOTE_RANGE, to: WHOLE_NOTE_RANGE, originalText: body } });
                             openPanel('ai');
                         },
                     },

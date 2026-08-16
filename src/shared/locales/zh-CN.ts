@@ -649,6 +649,7 @@ export const ZH_CN_MESSAGES = {
     "ai.create_note": "创建笔记",
     "ai.replace_note": "替换原文",
     "ai.open_settings": "打开 AI 设置",
+    "ai.target_note_changed": "生成期间这篇笔记被改动过，结果没有写回——此刻写回会落错位置，或覆盖掉更新的编辑。请从上方复制结果自行处理，或者重新跑一次。",
     "ai.target_note_gone": "那篇笔记已不在当前打开状态，结果没有写回。需要的话请从上方复制。",
     "ai.loss_truncated": "模型撞到了输出上限，结果被截断了。",
     "ai.loss_short": "结果长度只有输入的约 {percent}%，这通常意味着有一部分输入根本没进到模型里。",
