@@ -2,7 +2,7 @@
 
 > 前置：`ollama-ai-engine` 全部任务完成（引擎、防丢失、配置、设置面板、CSP 放行）。
 
-- [ ] 1. 文本文件读取与单测
+- [x] 1. 文本文件读取与单测
   - File: src/client/features/ai/read-text-file.ts（新建）、read-text-file.test.ts（新建）
   - `readTextFile(file)` 返回 `{ ok: true, text, name }` 或 `{ ok: false, reason }`
   - 判类型：`file.type.startsWith('text/')` 或后缀在 `.md/.markdown/.txt/.csv/.log/.json/.yaml/.yml` 内
@@ -12,7 +12,7 @@
   - _Requirements: 1.2, 1.6_
   - _Prompt: Implement the task for spec ai-markdown-entries, first run spec-workflow-guide to get the workflow guide then implement the task: Role: TypeScript 前端开发者 | Task: 新建 read-text-file.ts 实现文件读取与类型判定，满足需求 1.2/1.6，并写单测 | Restrictions: 不得只看 file.type——很多系统对 .md 给空 MIME，必须同时看后缀；超限必须拒绝不得截断；不加注释（comments:check 白名单制） | Success: 单测覆盖「.md 空 MIME 放行」「image/png 拒绝」「超 2 MB 拒绝」并全部通过_
 
-- [ ] 2. 面板请求通道与活动编辑器 holder
+- [x] 2. 面板请求通道与活动编辑器 holder
   - File: src/client/features/ai/request.ts（新建）、active-editor.ts（新建）、
     对应两个 .test.ts（新建）、src/client/features/workspace/Workspace.tsx（修改 1 行）
   - `request.ts`：`setAiPanelRequest` / `takeAiPanelRequest`，take 后清空（一次性语义）
@@ -23,7 +23,7 @@
   - _Requirements: 3.2_
   - _Prompt: Implement the task for spec ai-markdown-entries, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React 前端工程师 | Task: 新建 request.ts 与 active-editor.ts 并在 Workspace.tsx 的 onReady 里注册 EditorView，满足需求 3.2，写对应单测 | Restrictions: EditorView 不得放进 zustand（可变命令式对象，会引起无谓重渲染）；对 Workspace.tsx 的改动严格限制在 onReady 这一处，不得顺手重构该组件；不加注释 | Success: 单测通过（take 两次第二次为 null；无 view 时选区为 null）；npm run typecheck 通过_
 
-- [ ] 3. AiPanel 弹窗组件
+- [x] 3. AiPanel 弹窗组件
   - File: src/client/features/ai/AiPanel.tsx（新建）
   - 两种模式共用：`convert`（空输入，完成后 createNote）与 `tidy`（预填，完成后 editContent）
   - 输入区支持拖入文本文件；提交后流式渲染输出；显示分片进度（第 N/M 片）
@@ -36,7 +36,7 @@
   - _Requirements: 1.1, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3, 2.4, 3.3, 3.4, 4.1, 4.2_
   - _Prompt: Implement the task for spec ai-markdown-entries, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React 前端工程师，擅长流式 UI | Task: 新建 AiPanel.tsx，实现 convert/tidy 双模式弹窗，满足需求 1.1/1.3/1.4/1.5、2.1–2.4、3.3/3.4、4.1/4.2 | Restrictions: 不得做成两个组件——两套几乎一样的流式与告警逻辑会各自漂移；有 loss 告警时不得禁用创建按钮（判断权归用户）；错误分类必须复用 classifyAiError 不得另起一套；模式与初始输入从 request.ts 取不从 props 传（AppShell 渲染点是统一写法）；写回必须走 useNotes.editContent 而非直接改 CodeMirror，以保证可撤销与同步；不加注释 | Success: npm run typecheck 通过；本地起站后 convert 与 tidy 两条路都能跑通_
 
-- [ ] 4. 挂载弹窗与命令面板入口
+- [x] 4. 挂载弹窗与命令面板入口
   - File: src/client/store/ui.ts（修改）、src/client/features/shell/AppShell.tsx（修改）、
     src/client/features/command/CommandPalette.tsx（修改）
   - `ui.ts`：`PanelName` 联合类型加 `'ai'`
@@ -48,7 +48,7 @@
   - _Requirements: 1.1, 3.1, 3.2, 3.5, 5.2, 5.3_
   - _Prompt: Implement the task for spec ai-markdown-entries, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React 前端工程师 | Task: 在 ui.ts/AppShell.tsx/CommandPalette.tsx 三处接入 AiPanel 与两条命令，满足需求 1.1、3.1/3.2/3.5、5.2/5.3 | Restrictions: 严禁修改 EditorToolbar.tsx（需求 5.3）；三个文件各自的改动都要压到最小，不顺手重构；tidy 命令必须放进 activeNote 条件块而不是自己写 if；不加注释 | Success: npm run typecheck 通过；命令面板出现两条命令；无打开笔记时 tidy 那条不出现_
 
-- [ ] 5. 中英文案与变异测试
+- [x] 5. 中英文案与变异测试
   - File: src/shared/locales/en-US.ts、zh-CN.ts（修改）；任务 1、2 的测试文件
   - 补齐本 spec 全部面向用户字符串的中英文案
   - 对任务 1、2 的每条关键断言做变异测试：逐个改坏实现确认转红后还原
@@ -57,7 +57,7 @@
   - _Requirements: 全部（Usability）_
   - _Prompt: Implement the task for spec ai-markdown-entries, first run spec-workflow-guide to get the workflow guide then implement the task: Role: 前端工程师 + 测试工程师 | Task: 补齐中英文案并对本 spec 的单测做变异测试 | Restrictions: 变异逐个做逐个还原，最终 git diff 中实现文件必须无残留；不得为让测试转红而改测试；文案不得只加英文 | Success: npm run i18n:check 通过；每条关键断言都有确认转红的记录；npm run test:unit 全绿_
 
-- [ ] 6. 全量门禁
+- [x] 6. 全量门禁
   - File: 无（跑命令）
   - typecheck / test:unit / i18n:check / comments:check / deploy:check 五门，记录实际输出
   - Purpose: comments:check 与 i18n:check 特别容易被新 UI 代码触发
@@ -65,7 +65,7 @@
   - _Requirements: 全部_
   - _Prompt: Implement the task for spec ai-markdown-entries, first run spec-workflow-guide to get the workflow guide then implement the task: Role: 发布工程师 | Task: 跑齐五道门并记录实际输出 | Restrictions: 不得为了让门变绿而放宽门本身（不得往 check-comments 白名单里加新注释——应当删注释） | Success: 五条命令全部退出码 0_
 
-- [ ] 7. 线上端到端验收
+- [-] 7. 线上端到端验收
   - File: 无（部署 + 人工验证）
   - 部署后在 Chrome 上（先清 Service Worker）逐条验：
     A. convert 贴聊天记录 → 流式出 Markdown → 创建笔记，内容正确
