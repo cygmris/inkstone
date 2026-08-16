@@ -682,6 +682,7 @@ export const EN_US_MESSAGES = {
     "settings.ai_error_unreachable": "The browser could not reach Ollama. Either it is not running, or it has not been told to accept requests from this site — add this site to OLLAMA_ORIGINS and restart it. The browser reports both cases identically, so check them in that order.",
     "settings.ai_error_browser": "This browser blocks an HTTPS page from calling http://localhost. Use Chrome or Firefox.",
     "settings.ai_error_http": "Ollama answered with HTTP {status}: {detail}",
+    "settings.ai_error_timeout": "The request never came back. Chrome 138 and later ask for permission before a public site may reach 127.0.0.1, and a pending prompt leaves the request hanging — look for the local network prompt in the address bar and allow it, then test again. If there is no prompt, Ollama itself may be unreachable.",
     "settings.ai_error_unknown": "Unexpected failure: {detail}",
     "settings.mcp": "MCP",
     "settings.mcp_ai_search": "AI semantic search",

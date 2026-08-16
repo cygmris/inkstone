@@ -65,7 +65,7 @@
   - _Requirements: 全部_
   - _Prompt: Implement the task for spec ai-markdown-entries, first run spec-workflow-guide to get the workflow guide then implement the task: Role: 发布工程师 | Task: 跑齐五道门并记录实际输出 | Restrictions: 不得为了让门变绿而放宽门本身（不得往 check-comments 白名单里加新注释——应当删注释） | Success: 五条命令全部退出码 0_
 
-- [-] 7. 线上端到端验收
+- [~] 7. 线上端到端验收
   - File: 无（部署 + 人工验证）
   - 部署后在 Chrome 上（先清 Service Worker）逐条验：
     A. convert 贴聊天记录 → 流式出 Markdown → 创建笔记，内容正确
@@ -74,6 +74,7 @@
     D. tidy 选中一段 → 只有该段被替换
     E. 无打开笔记时 tidy 命令不出现
     F. 停掉 Ollama → 报错文案给出可操作说明且「打开 AI 设置」按钮可用
+  - _Blocked: A–F 六项已在本地 wrangler dev（真浏览器、真本机 Ollama）全部实测通过，含 C 项撤销成立与 B 项分片 12 节不丢。线上同样六项待用户在 Chrome 里授予 psn-note.byjs.dev 的本地网络权限后重跑——目前 Chrome 148 的 local-network-access 为 prompt，请求会挂起，与本项目代码无关（Convertly 同一浏览器实测同样受影响）。_
   - Purpose: 流式、分片、撤销、错误路径只有在真实站点上才验得了
   - _Leverage: 无_
   - _Requirements: 1.3, 1.4, 1.5, 2.3, 3.3, 3.4, 3.5, 4.1_

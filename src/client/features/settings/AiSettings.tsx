@@ -7,6 +7,8 @@ import { classifyAiError, listModels } from '../../lib/ai/ollama'
 import { t } from '../../lib/i18n'
 import { useUi } from '../../store/ui'
 
+const PROBE_TIMEOUT_MS = 12000
+
 type Probe =
   | { state: 'idle' }
   | { state: 'testing' }
@@ -47,16 +49,24 @@ export function AiSettings() {
 
   const testConnection = async () => {
     setProbe({ state: 'testing' })
+    const controller = new AbortController()
+    let timedOut = false
+    const timer = window.setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, PROBE_TIMEOUT_MS)
     try {
-      const models = await listModels(config.baseUrl)
+      const models = await listModels(config.baseUrl, controller.signal)
       if (!mountedRef.current) return
       setProbe({ state: 'ok', models })
       toast({ title: t('settings.ai_connected', { count: models.length }), tone: 'success' })
     } catch (error) {
       if (!mountedRef.current) return
-      const message = describeFailure(error)
+      const message = timedOut ? t('settings.ai_error_timeout') : describeFailure(error)
       setProbe({ state: 'failed', message })
       toast({ title: t('settings.ai_connection_failed'), description: message, tone: 'danger' })
+    } finally {
+      window.clearTimeout(timer)
     }
   }
 

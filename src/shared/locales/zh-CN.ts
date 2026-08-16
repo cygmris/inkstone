@@ -683,6 +683,7 @@ export const ZH_CN_MESSAGES = {
     "settings.ai_error_unreachable": "浏览器连不上 Ollama。要么它没有运行，要么它还没被允许接受本站的请求——把本站地址加进 OLLAMA_ORIGINS 再重启它。这两种情况在浏览器里长得一模一样，按这个顺序逐个排查。",
     "settings.ai_error_browser": "这个浏览器不允许 HTTPS 页面调用 http://localhost，请改用 Chrome 或 Firefox。",
     "settings.ai_error_http": "Ollama 返回 HTTP {status}：{detail}",
+    "settings.ai_error_timeout": "请求一直没有返回。Chrome 138 起，公网站点访问 127.0.0.1 需要先获得授权，而未处理的授权弹窗会让请求一直挂着——请在地址栏找到本地网络的授权提示并允许，然后重试。如果没有任何弹窗，那就可能是 Ollama 本身连不上。",
     "settings.ai_error_unknown": "未预期的失败：{detail}",
     "settings.mcp": "MCP",
     "settings.mcp_ai_search": "AI 语义搜索",

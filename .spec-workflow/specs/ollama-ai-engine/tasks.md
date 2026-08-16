@@ -70,14 +70,26 @@
   - _Requirements: 全部_
   - _Prompt: Implement the task for spec ollama-ai-engine, first run spec-workflow-guide to get the workflow guide then implement the task: Role: 发布工程师 | Task: 跑齐 typecheck / test:unit / i18n:check / comments:check / deploy:check 五道门并记录实际输出 | Restrictions: 不得为了让门变绿而放宽门本身（不得改 check 脚本的白名单去容纳新注释——应当删注释）；任何一条红了必须修代码而不是跳过 | Success: 五条命令全部退出码 0，输出已记入实现日志_
 
-- [ ] 8. 线上验收：CSP + CORS + 传输三层同时通
+- [~] 8. 线上验收：CSP + CORS + 传输三层同时通
   - File: 无（部署 + 人工验证）
   - 前置：本机 Ollama 的 OLLAMA_ORIGINS 追加 https://psn-note.byjs.dev
     （~/.config/systemd/user/ollama.service.d/override.conf → systemctl --user daemon-reload && restart）
   - 验证 A：curl -i -X OPTIONS http://127.0.0.1:11434/v1/chat/completions -H "Origin: https://psn-note.byjs.dev" -H "Access-Control-Request-Method: POST" → 204 + Access-Control-Allow-Origin 匹配
   - 验证 B：CLOUDFLARE_EMAIL=$CF_EMAIL CLOUDFLARE_API_KEY=$CF_KEY npm run deploy
   - 验证 C：Chrome 打开 https://psn-note.byjs.dev（先清 Service Worker，PWA 会缓存旧 bundle）→ 设置 → AI → 点「测试连接」→ 模型下拉出现本机模型
+  - _Blocked: 三层本身已全部验证通过——CSP 响应头线上实测含两个 loopback 端点；OLLAMA_ORIGINS 预检实测 204 + ACAO 匹配；传输层在本地 http://127.0.0.1:8788 页面实测拉到 5 个模型。剩下的最后一步不是代码问题：Chrome 148 的 local-network-access 权限当前为 prompt，需要用户在浏览器里点一次「允许」，自动化点不了浏览器 UI 的权限气泡。用户授权后重跑验证 C 即可关闭本项。_
   - Purpose: 这三层只有在真实 HTTPS 站点上才同时成立，本地开发环境验不了
   - _Leverage: 无_
   - _Requirements: 1.2, 1.3, 4.3_
   - _Prompt: Implement the task for spec ollama-ai-engine, first run spec-workflow-guide to get the workflow guide then implement the task: Role: 运维工程师 | Task: 配好 OLLAMA_ORIGINS、部署 Worker、在 Chrome 上验证测试连接能拉到模型列表，满足需求 1.2/1.3/4.3 | Restrictions: 部署必须用 Global API Key（CF_DNS_TOKEN 权限不够）；验证前必须清 Service Worker，否则跑的是旧 bundle 会得出错误结论；OLLAMA_ORIGINS 是追加不是替换，不要覆盖掉 Convertly 的域名 | Success: 三条验证都拿到预期结果并把实际输出记入实现日志；未通过则保持 [~] 并写明 Blocked 原因_
+
+- [x] 9. 连接测试加超时，并覆盖 Chrome 本地网络权限这条失败路径
+  - File: src/client/features/settings/AiSettings.tsx（修改）、src/shared/locales/{en-US,zh-CN}.ts（修改）
+  - 线上实测发现：Chrome 148 起从公网 HTTPS 页面访问 127.0.0.1 需要 local-network-access 权限，
+    未授予时请求**无限挂起而不报错**，界面永远停在「测试中…」
+  - 连接测试加超时（12 秒），超时后按新的一类失败给文案：提示可能在等 Chrome 的本地网络权限，
+    到地址栏图标或站点设置里允许一次
+  - Purpose: 需求 4.4 要求「连接失败要能说出是哪一环」；永远转圈既说不出哪一环，也说不出失败了
+  - _Leverage: src/client/lib/ai/ollama.ts 的 listModels（已支持 AbortSignal）_
+  - _Requirements: 4.4_
+  - _Prompt: Implement the task for spec ollama-ai-engine, first run spec-workflow-guide to get the workflow guide then implement the task: Role: 前端工程师 | Task: 给设置面板的连接测试加超时与对应文案，满足需求 4.4 | Restrictions: 超时只加在连接测试上，不要加到 streamMarkdown——生成本来就可能很慢，给它加超时会误杀正常长任务；文案必须中英双语；不加注释 | Success: 断开权限/服务时界面在 12 秒内给出可操作提示而不是一直转圈_
