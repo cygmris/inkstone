@@ -1,0 +1,122 @@
+# Requirements Document
+
+## Introduction
+
+给 AI 转换/整理功能加**第二个供应商**：Cloudflare Workers AI。
+
+Inkstone 已经绑定了 `AI`（用于语义搜索的 embedding），所以这条通道**不需要新增任何密钥**，
+Worker 里直接 `env.AI.run()` 即可。免费额度 10,000 Neurons/天（UTC 00:00 重置），
+Workers 免费计划超额直接报错、不会静默计费。
+
+**它不替换本地 Ollama，是并列的可选项，默认仍是本地。**
+两者解决的是不同处境：
+
+| | 本地 Ollama（现有，默认） | Cloudflare Workers AI（本 spec） |
+| --- | --- | --- |
+| 笔记内容去哪 | 只到本机，一个字节不出去 | **经过 Cloudflare** |
+| Safari | 用不了 | 可用 |
+| 手机 / 离开这台机器 | 用不了 | 可用 |
+| Chrome 本地网络权限 | 要点一次「允许」 | 不涉及（同源请求） |
+| 额度 | 无限 | 10,000 Neurons/天，与语义搜索共用 |
+
+## Alignment with Product Vision
+
+Inkstone 的卖点是自托管、数据在自己手里。云端供应商与这条**部分冲突**，
+因此本 spec 的态度是：默认不启用、切换时明确告知内容会发给 Cloudflare、
+永远不把它设成默认。用户在知情下选择便利，是他的权利；替他默默选，不是。
+
+## Requirements
+
+### Requirement 1：服务端转发路由
+
+**User Story:** 作为用户，我希望云端模式下浏览器只跟自己的站点说话，不用再折腾任何浏览器权限。
+
+#### Acceptance Criteria
+
+1. 系统 SHALL 新增 `POST /api/ai/chat`，用 `env.AI.run()` 调用 Workers AI
+2. 该路由 SHALL 要求登录（复用既有 `requireAuth`），未登录返回 401
+3. 该路由 SHALL 不引入任何新的密钥或环境变量——`AI` 绑定已存在
+4. IF `env.AI` 不存在（绑定被移除）THEN 路由 SHALL 返回明确的「未启用」错误，而不是 500
+5. 请求体 SHALL 接受 `{ model, messages, max_tokens }`，与既有客户端调用形状一致
+6. 模型 SHALL 由请求体指定，但服务端 SHALL 校验它在允许清单内，
+   拒绝任意字符串直传（避免被当成打 Workers AI 任意模型的代理）
+
+### Requirement 2：流式与格式转换
+
+**User Story:** 作为用户，云端模式下我同样要看到边生成边显示，而不是等着一次性蹦出来。
+
+#### Acceptance Criteria
+
+1. 路由 SHALL 以 `text/event-stream` 流式返回
+2. 系统 SHALL 把 Workers AI 的流转换成 OpenAI 的 delta 形状，
+   使客户端既有的 SSE 解析器与 `streamMarkdown` **一行都不用改**
+3. 🔴 转换器 SHALL 同时兼容两种上游 chunk 形状：
+   `{"response":"..."}`（Workers AI 原生）与已经是 OpenAI 形状的
+   `{"choices":[{"delta":{"content":"..."}}]}`
+   —— 文档对此说法不一致，且可能随模型而异，**不赌单一形状**
+4. 流结束时 SHALL 发出 `data: [DONE]`
+5. 转换器 SHALL 是纯函数，可单测，且覆盖跨 chunk 半行
+
+### Requirement 3：客户端供应商切换
+
+**User Story:** 作为用户，我要能在设置里明确地选用哪个供应商，并且一眼看出代价。
+
+#### Acceptance Criteria
+
+1. 配置 SHALL 新增 `provider`，取值 `'ollama' | 'cloudflare'`，**默认 `'ollama'`**
+2. WHEN provider 为 `cloudflare` THEN 请求 SHALL 打到同源的 `/api/ai/chat`
+3. WHEN provider 为 `ollama` THEN 行为 SHALL 与现在完全一致
+4. 设置面板 SHALL 提供切换控件，且云端选项旁 SHALL 明确写出
+   「笔记内容会发送到 Cloudflare」——不能只写在文档里
+5. 云端模式下 SHALL 提供模型选择，选项为允许清单内的模型
+6. 云端模式下 SHALL 隐藏本地专属的配置项（服务地址、连接测试），它们不适用
+
+### Requirement 4：额度与失败要说人话
+
+**User Story:** 作为用户，额度用完时我要知道是额度用完了、什么时候恢复，而不是看到一个裸的 HTTP 错误码。
+
+#### Acceptance Criteria
+
+1. WHEN Workers AI 因免费额度耗尽而失败 THEN 系统 SHALL 给出专门文案，
+   说明是 Cloudflare 免费额度用尽、UTC 00:00 重置、以及可切回本地 Ollama
+2. 系统 SHALL 提示该额度与 Inkstone 的语义搜索共用
+3. 其余失败 SHALL 复用既有的 `classifyAiError` 分类，不另起一套
+
+### Requirement 5：防丢失逻辑原样复用
+
+#### Acceptance Criteria
+
+1. `detectLoss` 与 `splitForChunking` SHALL 不做任何修改，云端路径同样受其保护
+2. 云端模式下的丢失告警 SHALL 与本地模式表现一致
+
+### Requirement 6：最小侵入
+
+#### Acceptance Criteria
+
+1. 新增代码 SHALL 尽量落在新文件
+2. 对既有文件的改动 SHALL 限制在：`app.ts` 注册路由、`config.ts` 加字段、
+   `ollama.ts` 解析 baseUrl 时分派、`AiSettings.tsx` 加切换、i18n 文案
+3. `guard.ts`、`AiPanel.tsx`、`request.ts`、`EditorToolbar.tsx`、`CommandPalette.tsx`
+   SHALL 不被修改
+
+## Non-Functional Requirements
+
+### Code Architecture and Modularity
+- 服务端转换器与路由分开：转换逻辑是纯函数放独立文件，路由只做鉴权与串接
+- 客户端的 provider 分派收敛在一处，不让 `'cloudflare'` 这个字符串散落各处
+- **无注释**：`comments:check` 白名单之外一行注释都不允许
+
+### Performance
+- 流式转换 SHALL 边收边发，不缓冲整个响应
+
+### Security
+- 模型必须在允许清单内，防止本路由沦为打任意 Workers AI 模型的开放代理
+- 路由必须登录才能用，不给未认证流量消耗账号额度
+
+### Reliability
+- 上游 chunk 形状不确定，转换器两种都吃；无法识别的 chunk 跳过而不是抛错
+- 上线后 SHALL 用真实请求实测确认实际形状，并把结果写进实现日志
+
+### Usability
+- 中英双语齐全（`i18n:check` 是硬门）
+- 隐私代价写在界面上，不是只写在文档里
