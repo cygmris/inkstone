@@ -114,7 +114,7 @@
   - _Requirements: 5.2, 5.3, 全部_
   - _Prompt: Implement the task for spec ai-writing-assistant, first run spec-workflow-guide to get the workflow guide then implement the task: Role: 测试工程师 + 发布工程师 | Task: 反向验证 + 五道门 + 侵入面核对 | Restrictions: 变异逐个做逐个还原，最终实现文件 git diff 必须 clean；去掉 isolateHistory 的变异必须被杀——它守的是 design 阶段实跑发现的真缺陷，存活就说明测试是摆设；变异存活时先分清「测试没覆盖」还是「这段代码本来就不做事」；不得为让门变绿而放宽门本身 | Success: 全部变异被杀且 diff clean；五条命令退出码 0；侵入面与 design 逐项一致_
 
-- [-] 12. 线上验收
+- [x] 12. 线上验收
   - File: 无（部署 + 人工验证）
   - A. 选区改写：气泡浮出不遮挡选区 → 写长一点 → 逐字可见 → 替换 → **一次 Ctrl+Z 只撤这段，用户之前敲的字还在**
   - B. 取消：中途取消 → 正文与发起前**逐字相同**
