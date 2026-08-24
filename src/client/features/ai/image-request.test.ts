@@ -1,0 +1,52 @@
+import { describe, expect, it } from 'vitest'
+import { imageFileName, imageKindOf, promptSlug } from './image-request'
+
+const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10])
+const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a])
+const unknown = new Uint8Array([0x00, 0x01, 0x02, 0x03])
+
+describe('imageKindOf', () => {
+  it('reads the format from the bytes, not from any header', () => {
+    expect(imageKindOf(jpeg)).toEqual({ mime: 'image/jpeg', extension: 'jpg' })
+    expect(imageKindOf(png)).toEqual({ mime: 'image/png', extension: 'png' })
+  })
+
+  it('refuses to guess when the bytes match nothing it knows', () => {
+    expect(imageKindOf(unknown).extension).toBe('bin')
+  })
+
+  it('does not mistake a truncated header for a match', () => {
+    expect(imageKindOf(new Uint8Array([0x89, 0x50])).extension).toBe('bin')
+    expect(imageKindOf(new Uint8Array([])).extension).toBe('bin')
+  })
+})
+
+describe('promptSlug', () => {
+  it('turns a prompt into a filename-safe slug', () => {
+    expect(promptSlug('A ginger cat, watching rain!')).toBe('a-ginger-cat-watching-rain')
+  })
+
+  it('keeps non-latin words instead of dropping them to nothing', () => {
+    const cat = '\u6a58\u732b'
+    const rain = '\u770b\u96e8'
+    expect(promptSlug(`${cat} ${rain}`)).toBe(`${cat}-${rain}`)
+  })
+
+  it('falls back when the prompt has nothing usable', () => {
+    expect(promptSlug('   ')).toBe('ai-image')
+    expect(promptSlug('!!!___!!!')).toBe('ai-image')
+  })
+
+  it('truncates a long prompt and never ends on a separator', () => {
+    const slug = promptSlug('word '.repeat(50))
+    expect(slug.length).toBeLessThanOrEqual(40)
+    expect(slug.endsWith('-')).toBe(false)
+  })
+})
+
+describe('imageFileName', () => {
+  it('joins the slug with the extension the bytes implied', () => {
+    expect(imageFileName('A ginger cat', imageKindOf(jpeg).extension)).toBe('a-ginger-cat.jpg')
+    expect(imageFileName('   ', imageKindOf(png).extension)).toBe('ai-image.png')
+  })
+})

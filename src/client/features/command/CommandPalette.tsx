@@ -16,6 +16,7 @@ import { folderPathLabel, openFolderView } from '../../lib/folders';
 import { useSession } from '../../store/session';
 import { t, useLocale } from "../../lib/i18n";
 import { openAiSummarizeForNote, openAiTidyForNote, openAiTitleForNote } from '../ai/open-tidy';
+import { requestWritingIntent } from '../ai/writing-intent';
 import { setAiPanelRequest } from '../ai/request';
 interface Item {
     id: string;
@@ -168,6 +169,30 @@ export function CommandPalette({ onClose }: {
                         icon: <Sparkles size={14}/>,
                         group: t("common.current_note"),
                         run: () => openAiTitleForNote(activeNote.id),
+                    },
+                    {
+                        id: 'cmd-ai-draft',
+                        kind: 'command' as const,
+                        label: t("ai.draft_action"),
+                        icon: <Sparkles size={14}/>,
+                        group: t("common.current_note"),
+                        run: () => requestWritingIntent('draft'),
+                    },
+                    {
+                        id: 'cmd-ai-continue',
+                        kind: 'command' as const,
+                        label: t("ai.continue_action"),
+                        icon: <Sparkles size={14}/>,
+                        group: t("common.current_note"),
+                        run: () => requestWritingIntent('continue'),
+                    },
+                    {
+                        id: 'cmd-ai-image',
+                        kind: 'command' as const,
+                        label: t("ai.image_action"),
+                        icon: <Sparkles size={14}/>,
+                        group: t("common.current_note"),
+                        run: () => requestWritingIntent('image'),
                     },
                     {
                         id: 'cmd-delete',

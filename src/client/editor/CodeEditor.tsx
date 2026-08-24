@@ -15,6 +15,7 @@ import { codeFenceSource, tagSource, wikiLinkSource, type CompletionSources } fr
 import { pasteExtension, type PasteHandlers } from './paste';
 import { setHeading, smartEnter, tableTab, toggleBold, toggleBulletList, toggleHighlight, toggleInlineCode, toggleItalic, toggleOrderedList, toggleQuote, toggleStrikethrough, toggleTaskDone, toggleTaskList, } from './commands';
 import { t } from "../lib/i18n";
+import { aiStreamUpdate } from './ai-stream';
 
 const externalValueUpdate = Annotation.define<boolean>();
 export interface CodeEditorProps {
@@ -105,7 +106,8 @@ export function CodeEditor({ value, onChange, settings, sources, handlers, onRea
             keymap.of([indentWithTab]),
             EditorView.updateListener.of((update) => {
                 const external = update.transactions.some((transaction) => transaction.annotation(externalValueUpdate));
-                if (update.docChanged && !external) {
+                const streaming = update.transactions.some((transaction) => transaction.annotation(aiStreamUpdate));
+                if (update.docChanged && !external && !streaming) {
                     cbRef.current.onChange(update.state.doc.toString());
                 }
                 if (update.selectionSet && cbRef.current.onCursorLine) {

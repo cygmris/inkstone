@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { EditorView } from '@codemirror/view';
+import { isolateHistory } from '@codemirror/commands';
 import { setActiveEditorView } from '../ai/active-editor';
+import { ImageDialog } from '../ai/ImageDialog';
+import { PromptDialog } from '../ai/PromptDialog';
+import { SelectionBubble } from '../ai/SelectionBubble';
+import { useWritingAction } from '../ai/use-writing-action';
+import { WritingStatusBar } from '../ai/WritingStatusBar';
+import { consumeWritingIntent, subscribeWritingIntent, type WritingIntent } from '../ai/writing-intent';
+import { escapeMarkdownLabel } from '../../editor/paste';
 import { ArrowLeft, Columns2, Download, Eye, FileCode, FileDown, FileText, FolderClosed, Hash, History, Link as LinkIcon, ListTree, MoreHorizontal, PanelRightClose, Pencil, Plus, Share2, Star, X, } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { api } from '../../lib/api';
@@ -75,6 +83,16 @@ export function Workspace({ mobileLayout = 'edit', onMobileBack, pane = 'active'
         setViewState(next);
         setActiveEditorView(next);
     }, []);
+    const writing = useWritingAction(view, note?.id ?? null);
+    const [intent, setIntent] = useState<WritingIntent | null>(null);
+    useEffect(() => subscribeWritingIntent((next) => {
+        consumeWritingIntent();
+        if (next === 'continue') {
+            void writing.start({ kind: 'continue' });
+            return;
+        }
+        setIntent(next);
+    }), [writing]);
     const [headings, setHeadings] = useState<Heading[]>([]);
     const [moreMenuOpen, setMoreMenuOpen] = useState(false);
     const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -175,6 +193,22 @@ export function Workspace({ mobileLayout = 'edit', onMobileBack, pane = 'active'
             state.editContent(noteId, `${source.slice(0, at)}${replacement}${source.slice(at + placeholder.length)}`);
         },
     }), [note?.id, toast]);
+    const insertGeneratedImage = useCallback(async (file: File, alt: string) => {
+        const noteId = note?.id;
+        if (!noteId || !view)
+            return false;
+        const uploaded = await handlers.uploadFile(file);
+        if (!uploaded)
+            return false;
+        const markdown = `![${escapeMarkdownLabel(alt)}](${uploaded.url})`;
+        const at = view.state.selection.main.head;
+        view.dispatch({
+            changes: { from: at, insert: markdown },
+            selection: { anchor: at + markdown.length },
+            annotations: [isolateHistory.of('before')],
+        });
+        return true;
+    }, [note?.id, view, handlers]);
     const onChange = useCallback((next: string) => {
         if (!note)
             return;
@@ -428,6 +462,12 @@ export function Workspace({ mobileLayout = 'edit', onMobileBack, pane = 'active'
       </div>
 
       {backlinksOpen && paneActive && <BacklinksPanel noteId={note.id}/>}
+
+      <SelectionBubble view={view} phase={writing.state.phase} onAction={(action) => void writing.start(action)} onCustom={() => setIntent('custom')} onAccept={writing.accept} onDiscard={writing.discard}/>
+      <WritingStatusBar state={writing.state} onCancel={writing.cancel}/>
+      {intent === 'draft' && (<PromptDialog title={t("ai.draft_title")} description={t("ai.draft_description")} placeholder={t("ai.draft_placeholder")} submitLabel={t("ai.generate")} onSubmit={(topic) => void writing.start({ kind: 'draft', topic })} onClose={() => setIntent(null)}/>)}
+      {intent === 'custom' && (<PromptDialog title={t("ai.custom_title")} description={t("ai.custom_description")} placeholder={t("ai.custom_placeholder")} submitLabel={t("ai.generate")} onSubmit={(instruction) => void writing.start({ kind: 'rewrite', preset: 'custom', instruction })} onClose={() => setIntent(null)}/>)}
+      {intent === 'image' && (<ImageDialog onInsert={insertGeneratedImage} onClose={() => setIntent(null)}/>)}
 
       <Menu anchor={moreButtonRef} open={moreMenuOpen} onClose={() => setMoreMenuOpen(false)} items={grouped ? groupedItems : mobileItems} align="end" width={220}/>
       {isMobile && showPreview && (<Drawer open={mobileOutlineOpen} onClose={() => setMobileOutlineOpen(false)} side="right" width={320} title={t("common.outline")}>

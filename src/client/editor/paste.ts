@@ -143,7 +143,7 @@ function stripExt(name: string): string {
     const dot = name.lastIndexOf('.');
     return dot > 0 ? name.slice(0, dot) : name;
 }
-function escapeMarkdownLabel(value: string): string {
+export function escapeMarkdownLabel(value: string): string {
     return value.replace(/[\r\n]+/g, ' ').replace(/\\/g, '\\\\').replace(/[\[\]]/g, '\\$&');
 }
 function safeHtmlComment(value: string): string {

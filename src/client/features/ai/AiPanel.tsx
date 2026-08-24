@@ -15,6 +15,7 @@ import {
 import { t } from '../../lib/i18n'
 import { useNotes } from '../../store/notes'
 import { useUi } from '../../store/ui'
+import { aiFailureMessage } from './failure-message'
 import { readTextFile } from './read-text-file'
 import { applyToTarget, isTargetUnchanged, takeAiPanelRequest, type AiPanelMode, type AiPanelRequest } from './request'
 import { insertSummary, normalizeTitle } from './summary'
@@ -22,17 +23,6 @@ import { insertSummary, normalizeTitle } from './summary'
 function lossMessage(loss: LossReport): string {
   if (loss.kind === 'truncated') return t('ai.loss_truncated')
   return t('ai.loss_short', { percent: Math.round((loss.ratio ?? 0) * 100) })
-}
-
-function failureMessage(error: unknown): string {
-  const classified = classifyAiError(error)
-  if (classified.kind === 'unsupported-browser') return t('settings.ai_error_browser')
-  if (classified.kind === 'http') {
-    if (classified.status === 429) return t('settings.ai_error_quota')
-    return t('settings.ai_error_http', { status: classified.status ?? 0, detail: classified.detail })
-  }
-  if (classified.kind === 'unreachable') return t('settings.ai_error_unreachable')
-  return t('settings.ai_error_unknown', { detail: classified.detail })
 }
 
 const SYSTEM_PROMPTS: Record<AiPanelMode, string> = {
@@ -119,7 +109,7 @@ export function AiPanel({ onClose }: { onClose: () => void }) {
       setOutput(result.markdown)
       setLoss(result.loss)
     } catch (failure) {
-      if (classifyAiError(failure).kind !== 'aborted') setError(failureMessage(failure))
+      if (classifyAiError(failure).kind !== 'aborted') setError(aiFailureMessage(failure))
     } finally {
       abortRef.current = null
       setRunning(false)

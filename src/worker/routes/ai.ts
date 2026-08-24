@@ -11,6 +11,10 @@ export const aiRoutes = new Hono<AppBindings>()
 aiRoutes.use('*', requireAuth)
 
 const MAX_OUTPUT_TOKENS = 16384
+const IMAGE_MODEL = '@cf/black-forest-labs/flux-1-schnell'
+const MAX_IMAGE_PROMPT_CHARS = 1000
+const JPEG_MAGIC = [0xff, 0xd8]
+const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47]
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
@@ -88,6 +92,72 @@ aiRoutes.post('/chat', async (c) => {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-store',
       Connection: 'keep-alive',
+    },
+  })
+})
+
+interface ImageBody {
+  prompt?: unknown
+}
+
+function readImagePrompt(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw ApiError.badRequest('prompt must be a non-empty string')
+  }
+  return value.trim().slice(0, MAX_IMAGE_PROMPT_CHARS)
+}
+
+function startsWith(bytes: Uint8Array, magic: number[]): boolean {
+  return magic.every((byte, index) => bytes[index] === byte)
+}
+
+export function imageMediaType(bytes: Uint8Array): string {
+  if (startsWith(bytes, PNG_MAGIC)) return 'image/png'
+  if (startsWith(bytes, JPEG_MAGIC)) return 'image/jpeg'
+  return 'application/octet-stream'
+}
+
+export function decodeBase64(value: string): Uint8Array {
+  const binary = atob(value)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+  return bytes
+}
+
+export async function normalizeImageResult(result: unknown): Promise<Uint8Array> {
+  if (result instanceof ReadableStream) {
+    return new Uint8Array(await new Response(result).arrayBuffer())
+  }
+  if (result instanceof ArrayBuffer) return new Uint8Array(result)
+  if (result instanceof Uint8Array) return result
+  const image = (result as { image?: unknown })?.image
+  if (typeof image === 'string') return decodeBase64(image)
+  throw new ApiError(502, 'internal', 'The image model returned an unexpected payload')
+}
+
+aiRoutes.post('/image', async (c) => {
+  const ai = c.env.AI
+  if (!ai) {
+    throw new ApiError(503, 'server_misconfigured', 'Workers AI is not bound to this deployment')
+  }
+
+  const body = await readJson<ImageBody>(c, JSON_BODY_LIMITS.note)
+  const prompt = readImagePrompt(body.prompt)
+
+  let bytes: Uint8Array
+  try {
+    bytes = await normalizeImageResult(await ai.run(IMAGE_MODEL, { prompt }))
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    throw upstreamFailure(error)
+  }
+  if (!bytes.length) throw new ApiError(502, 'internal', 'The image model returned no data')
+
+  return new Response(bytes, {
+    headers: {
+      'Content-Type': imageMediaType(bytes),
+      'Content-Length': String(bytes.length),
+      'Cache-Control': 'no-store',
     },
   })
 })
