@@ -2,8 +2,8 @@
 
 ## 目标达成
 
-需求 1–5 全部达成，全部在真浏览器 + 真本机模型上跑通（本地 `wrangler dev`）。
-线上同样六项待用户授予 Chrome 本地网络权限后重跑，见「已知边界」。
+需求 1–5 全部达成，A–F 六项**先在本地 `wrangler dev` 跑通，2026-08-24 又在生产站点
+`https://psn-note.byjs.dev` 上原样复跑一遍**（Chrome 的本地网络权限已授予），两轮结论一致。
 
 需求 3.4 的「改动能被撤销」在设计时标注为**未验证的押注**，现已实测成立。
 
@@ -93,9 +93,11 @@ E2E 没能暴露它，因为我从点 Convert 到点 Replace 只隔了几秒。
 
 ## 已知边界
 
-- 线上六项待用户在 Chrome 里授予 `psn-note.byjs.dev` 的本地网络权限后重跑
-  （Chrome 138+ 的 Local Network Access，详见 `ollama-ai-engine/conclusion.md`）。
-  代码路径与本地完全一致，本地六项全过。
+- 线上六项已于 2026-08-24 复跑通过（Chrome 的 Local Network Access 权限已 `granted`）。
+  该权限一旦退回 `prompt`（换浏览器 / 换 profile / 清站点数据），请求会**挂起而不报错**，
+  详见 `ollama-ai-engine/conclusion.md`。
+- **错误提示的「Open AI settings」落在设置面板的 Appearance 首屏，不是 Local AI 那一栏**
+  —— 用户还得自己再点一次才到能改的地方。线上验收时发现，属交互债，未修，待用户决定。
 - 不含 OCR / PDF：需要额外前端依赖，属于另一个量级。
 - 不含多轮追问精修：`streamMarkdown` 的 `history` 参数已预留，但没有做交互。
 - 流式渲染在**很大输出**下的性能未量化（实测规模仅几百字符）。

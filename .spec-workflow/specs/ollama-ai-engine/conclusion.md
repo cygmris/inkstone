@@ -78,10 +78,13 @@ CSP、CORS、传输三层各自都已实测通过，但**三层在真实 HTTPS �
 ## 已知边界
 
 - **Chrome 138+ 的 Local Network Access 权限未授予时，公网 HTTPS 页面访问 `127.0.0.1`
-  的请求会挂起而不是报错。** 实测 `navigator.permissions.query({name:'local-network-access'})`
-  返回 `prompt`。需要用户在浏览器里点一次「允许」，自动化点不了浏览器 UI 的权限气泡。
+  的请求会挂起而不是报错**（既不 resolve 也不 reject，控制台无任何输出）。
+  需要用户在浏览器里点一次「允许」，自动化点不了浏览器 UI 的权限气泡。
   **这条同样影响用户既有的 Convertly**（同一浏览器实测复现），不是本项目引入的问题。
-- 因此任务 8 保持 `[~]`：三层各自已验证，合起来的最后一步待用户授权后重跑。
+  2026-08-24 复测：该权限已由用户授予，`navigator.permissions.query({name:'local-network-access'})`
+  返回 **`granted`**，页面直连 `127.0.0.1:11434` 实测 200 / 17ms / 5 个模型，任务 8 已据此关闭。
+  **判据留在这里不是历史包袱**：换浏览器、换 profile、清站点数据都会让它退回 `prompt`，
+  届时症状仍是「什么都不发生」，先查这一条。
 - 仅支持 Chrome / Firefox。Safari 不允许 HTTPS 页面调 `http://localhost`，已在界面明示。
 - `src/worker` 依赖 `cloudflare:` 协议模块，本仓 vitest 没配 workers pool，
   **Worker 侧无法写集成测试**。CSP 这类改动只能靠 `wrangler dev` + `curl` 实测验证。

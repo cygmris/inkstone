@@ -70,14 +70,13 @@
   - _Requirements: 全部_
   - _Prompt: Implement the task for spec ollama-ai-engine, first run spec-workflow-guide to get the workflow guide then implement the task: Role: 发布工程师 | Task: 跑齐 typecheck / test:unit / i18n:check / comments:check / deploy:check 五道门并记录实际输出 | Restrictions: 不得为了让门变绿而放宽门本身（不得改 check 脚本的白名单去容纳新注释——应当删注释）；任何一条红了必须修代码而不是跳过 | Success: 五条命令全部退出码 0，输出已记入实现日志_
 
-- [~] 8. 线上验收：CSP + CORS + 传输三层同时通
+- [x] 8. 线上验收：CSP + CORS + 传输三层同时通
   - File: 无（部署 + 人工验证）
   - 前置：本机 Ollama 的 OLLAMA_ORIGINS 追加 https://psn-note.byjs.dev
     （~/.config/systemd/user/ollama.service.d/override.conf → systemctl --user daemon-reload && restart）
   - 验证 A：curl -i -X OPTIONS http://127.0.0.1:11434/v1/chat/completions -H "Origin: https://psn-note.byjs.dev" -H "Access-Control-Request-Method: POST" → 204 + Access-Control-Allow-Origin 匹配
   - 验证 B：CLOUDFLARE_EMAIL=$CF_EMAIL CLOUDFLARE_API_KEY=$CF_KEY npm run deploy
   - 验证 C：Chrome 打开 https://psn-note.byjs.dev（先清 Service Worker，PWA 会缓存旧 bundle）→ 设置 → AI → 点「测试连接」→ 模型下拉出现本机模型
-  - _Blocked: 三层本身已全部验证通过——CSP 响应头线上实测含两个 loopback 端点；OLLAMA_ORIGINS 预检实测 204 + ACAO 匹配；传输层在本地 http://127.0.0.1:8788 页面实测拉到 5 个模型。剩下的最后一步不是代码问题：Chrome 148 的 local-network-access 权限当前为 prompt，需要用户在浏览器里点一次「允许」，自动化点不了浏览器 UI 的权限气泡。用户授权后重跑验证 C 即可关闭本项。_
   - Purpose: 这三层只有在真实 HTTPS 站点上才同时成立，本地开发环境验不了
   - _Leverage: 无_
   - _Requirements: 1.2, 1.3, 4.3_
