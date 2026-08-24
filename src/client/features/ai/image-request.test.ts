@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { imageFileName, imageKindOf, promptSlug } from './image-request'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { imageFileName, imageKindOf, promptSlug, requestImage } from './image-request'
 
 const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10])
 const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a])
@@ -48,5 +48,45 @@ describe('imageFileName', () => {
   it('joins the slug with the extension the bytes implied', () => {
     expect(imageFileName('A ginger cat', imageKindOf(jpeg).extension)).toBe('a-ginger-cat.jpg')
     expect(imageFileName('   ', imageKindOf(png).extension)).toBe('ai-image.png')
+  })
+})
+
+describe('requestImage', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const respondWith = (bytes: Uint8Array, contentType: string) => {
+    const fetchMock = vi.fn(async () => new Response(bytes.slice().buffer as ArrayBuffer, { status: 200, headers: { 'Content-Type': contentType } }))
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  it('names the file from the bytes even when the response header lies about the type', async () => {
+    respondWith(jpeg, 'image/png')
+    const file = await requestImage('A ginger cat')
+    expect(file.type).toBe('image/jpeg')
+    expect(file.name).toBe('a-ginger-cat.jpg')
+  })
+
+  it('trusts the bytes for a real png too', async () => {
+    respondWith(png, 'application/octet-stream')
+    const file = await requestImage('A ginger cat')
+    expect(file.type).toBe('image/png')
+    expect(file.name).toBe('a-ginger-cat.png')
+  })
+
+  it('posts the prompt to the image endpoint', async () => {
+    const fetchMock = respondWith(jpeg, 'image/jpeg')
+    await requestImage('a prompt')
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('/api/ai/image')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(String(init.body))).toEqual({ prompt: 'a prompt' })
+  })
+
+  it('throws a classifiable error carrying the status', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('over quota', { status: 429 })))
+    await expect(requestImage('a prompt')).rejects.toMatchObject({ httpStatus: 429 })
   })
 })
