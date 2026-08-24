@@ -8,7 +8,7 @@ import { TONE_OPTIONS, TRANSLATE_OPTIONS, type ToneOption, type TranslateOption,
 
 const BUBBLE_GAP = 8
 const BUBBLE_MARGIN = 8
-const ESTIMATED_WIDTH = 360
+const FALLBACK_SIZE = { width: 360, height: 36 }
 
 const TONE_LABELS: Record<ToneOption, 'ai.tone_formal' | 'ai.tone_casual' | 'ai.tone_concise'> = {
   formal: 'ai.tone_formal',
@@ -27,20 +27,24 @@ export interface BubblePosition {
   below: boolean
 }
 
+export function bubbleMaxWidth(viewportWidth: number): number {
+  return Math.max(0, viewportWidth - BUBBLE_MARGIN * 2)
+}
+
 export function bubblePosition(
   head: { left: number; top: number; bottom: number },
   viewport: { width: number; height: number },
   size: { width: number; height: number },
 ): BubblePosition {
+  const width = size.width
   const below = head.top - size.height - BUBBLE_GAP < BUBBLE_MARGIN
   const top = below ? head.bottom + BUBBLE_GAP : head.top - size.height - BUBBLE_GAP
-  const half = size.width / 2
-  const maxLeft = viewport.width - size.width - BUBBLE_MARGIN
-  const left = Math.max(BUBBLE_MARGIN, Math.min(head.left - half, Math.max(BUBBLE_MARGIN, maxLeft)))
+  const maxLeft = viewport.width - width - BUBBLE_MARGIN
+  const left = Math.max(BUBBLE_MARGIN, Math.min(head.left - width / 2, Math.max(BUBBLE_MARGIN, maxLeft)))
   return { left, top: Math.max(BUBBLE_MARGIN, Math.min(top, viewport.height - size.height - BUBBLE_MARGIN)), below }
 }
 
-function measure(view: EditorView): BubblePosition | null {
+function measure(view: EditorView, size: { width: number; height: number }): BubblePosition | null {
   const range = view.state.selection.main
   if (range.empty) return null
   if (!view.state.sliceDoc(range.from, range.to).trim()) return null
@@ -51,11 +55,10 @@ function measure(view: EditorView): BubblePosition | null {
   const top = Math.min(start.top, end.top)
   const bottom = Math.max(start.bottom, end.bottom)
   if (bottom < scroller.top || top > scroller.bottom) return null
-  const height = 36
   return bubblePosition(
     { left: (start.left + end.left) / 2, top, bottom },
     { width: window.innerWidth, height: window.innerHeight },
-    { width: ESTIMATED_WIDTH, height },
+    size,
   )
 }
 
@@ -74,13 +77,18 @@ export function SelectionBubble({
   const [openMenu, setOpenMenu] = useState<'tone' | 'translate' | null>(null)
   const toneRef = useRef<HTMLButtonElement>(null)
   const translateRef = useRef<HTMLButtonElement>(null)
+  const bubbleRef = useRef<HTMLDivElement>(null)
 
   const refresh = useCallback(() => {
     if (!view) {
       setPosition(null)
       return
     }
-    setPosition(measure(view))
+    const node = bubbleRef.current
+    const size = node
+      ? { width: node.scrollWidth, height: node.offsetHeight || FALLBACK_SIZE.height }
+      : FALLBACK_SIZE
+    setPosition(measure(view, size))
   }, [view])
 
   useEffect(() => {
@@ -130,10 +138,11 @@ export function SelectionBubble({
   return (
     <>
       <div
+        ref={bubbleRef}
         role="toolbar"
         aria-label={t('ai.writing_generating')}
-        className="fixed z-40 flex items-center gap-0.5 rounded-[var(--r-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-1 shadow-[var(--shadow-lg)]"
-        style={{ left: position.left, top: position.top }}
+        className="fixed z-40 flex items-center gap-0.5 overflow-x-auto rounded-[var(--r-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-1 no-scrollbar shadow-[var(--shadow-lg)]"
+        style={{ left: position.left, top: position.top, maxWidth: bubbleMaxWidth(window.innerWidth) }}
         onMouseDown={(event) => event.preventDefault()}
       >
         <Sparkles size={13} className="mx-1 shrink-0 text-[var(--accent)]" />

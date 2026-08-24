@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bubblePosition } from './SelectionBubble'
+import { bubbleMaxWidth, bubblePosition } from './SelectionBubble'
 
 const VIEWPORT = { width: 1200, height: 800 }
 const SIZE = { width: 360, height: 36 }
@@ -37,5 +37,24 @@ describe('bubblePosition', () => {
     const position = bubblePosition({ left: 160, top: 300, bottom: 320 }, narrow, SIZE)
     expect(position.left).toBeGreaterThanOrEqual(0)
     expect(position.top).toBeGreaterThanOrEqual(0)
+  })
+
+  it('keeps a bubble far wider than the phone viewport pinned to the left margin', () => {
+    const phone = { width: 390, height: 780 }
+    const wide = { width: 691, height: 36 }
+    const position = bubblePosition({ left: 200, top: 400, bottom: 420 }, phone, wide)
+    expect(position.left).toBeGreaterThanOrEqual(0)
+    expect(position.left + bubbleMaxWidth(phone.width)).toBeLessThanOrEqual(phone.width)
+  })
+})
+
+describe('bubbleMaxWidth', () => {
+  it('never lets the bubble be as wide as the viewport', () => {
+    expect(bubbleMaxWidth(390)).toBeLessThan(390)
+    expect(bubbleMaxWidth(1200)).toBeLessThan(1200)
+  })
+
+  it('never returns a negative width', () => {
+    expect(bubbleMaxWidth(4)).toBe(0)
   })
 })
