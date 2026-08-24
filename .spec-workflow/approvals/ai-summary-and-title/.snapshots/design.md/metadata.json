@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/ai-summary-and-title/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-08-24T09:09:10.952Z",
+      "trigger": "initial",
+      "approvalId": "approval_1787562550952_gphg2m36g",
+      "approvalTitle": "ai-summary-and-title design"
+    }
+  ]
+}

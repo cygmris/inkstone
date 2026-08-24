@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/ai-summary-and-title/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-08-24T09:10:24.398Z",
+      "trigger": "initial",
+      "approvalId": "approval_1787562624397_n1285m8ma",
+      "approvalTitle": "ai-summary-and-title tasks"
+    }
+  ]
+}
