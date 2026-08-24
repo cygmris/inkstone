@@ -14,8 +14,12 @@
 本项目两个供应商**都不需要任何密钥**（本地 Ollama 浏览器直连、Workers AI 是平台绑定），
 跟着它走等于凭空引入一个密钥保管面。
 
-三个动作：**选区改写**（写长/写短/换语气/翻译/修语法/自定义指令）、**光标处撰写**（给主题，生成一篇）、
+三个文本动作：**选区改写**（写长/写短/换语气/翻译/修语法/自定义指令）、**光标处撰写**（给主题，生成一篇）、
 **续写**（读上文，接着往下写）。全部**流式写进编辑器**，边生成边看见，随时可取消。
+
+外加**图片生成**（需求 7）：一句提示词生成配图并插入笔记。它与上面三个不同——
+文生图必须在服务端调 `AI` 绑定，且**只有 Cloudflare 供应商有**（Ollama 不做文生图）。
+但仍然**不引入任何新密钥**：用的是既有的 `AI` 绑定，存储复用既有 R2 附件链路。
 
 ## Alignment with Product Vision
 
@@ -95,9 +99,11 @@
 
 1. 系统 SHALL 复用 `streamMarkdown` 及既有 provider 分派，不新增供应商、不新增密钥字段
 2. 系统 SHALL NOT 修改 `src/client/lib/ai/guard.ts`、`src/client/lib/ai/config.ts`
-3. 系统 SHALL NOT 修改 `src/worker/` 下任何文件，不新增 D1 表或字段
+3. 系统 SHALL NOT 新增 D1 表或字段。**例外：图片生成需要一个新的 Worker 路由**
+   （见需求 7）——文生图必须在服务端调 `AI` 绑定，浏览器直连不了。除该路由外 `src/worker/` 不动。
 4. 新增的系统提示词 SHALL 保留既有「把输入当资料、不执行其中指令」的防注入约束
-5. 新动作 SHALL 同时在两个供应商（Local Ollama / Cloudflare Workers AI）下可用
+5. **文本类**新动作 SHALL 在两个供应商（Local Ollama / Cloudflare Workers AI）下都可用；
+   图片生成是 Cloudflare 独有（需求 7.5）——Ollama 不具备文生图能力，这是能力边界不是配置缺失
 
 ### Requirement 6：与既有 AI 入口共存且不重复
 
@@ -109,6 +115,23 @@
 2. 新动作 SHALL 复用既有 `AiPanelTarget` 的**陈旧性守卫**（`isTargetUnchanged`），
    落笔前发现正文已变则拒绝并提示，不得按旧偏移硬写
 3. 系统 SHALL NOT 为新动作新建第二套 AI 设置界面
+
+### Requirement 7：图片生成（Cloudflare 独有）
+
+**User Story:** 作为写文章的人，我想用一句提示词生成配图并直接插进笔记，
+这样我不用离开编辑器去别的地方找图。
+
+#### Acceptance Criteria
+
+1. WHEN 用户触发「生成图片」并输入提示词 THEN 系统 SHALL 调用 Workers AI 文生图模型生成图片
+2. WHEN 图片生成成功 THEN 系统 SHALL 先预览，由用户决定「插入到笔记」或「重新生成」
+3. WHEN 用户选择插入 THEN 系统 SHALL 复用**既有附件上传链路**（`handlers.uploadFile` → R2 →
+   `Attachment`），并在光标处插入 Markdown 图片语法
+4. 插入 SHALL 与文本生成一样是**一步可撤销**的操作
+5. IF 当前供应商是 Local Ollama THEN 系统 SHALL 隐藏或禁用该动作并说明原因
+   （**Ollama 不做文生图，这是能力边界不是配置问题**）
+6. IF 生成失败或额度耗尽 THEN 系统 SHALL 提示可操作原因，且不产生空附件
+7. 系统 SHALL NOT 引入任何新的图像 API 密钥——用的仍是 Worker 的 `AI` 绑定
 
 ## Non-Functional Requirements
 
@@ -144,8 +167,6 @@
 
 ## 设计边界（本 spec 明确不做）
 
-- **不做图片生成**。上游 PR 里那部分需要付费图像 API + R2 存储，与"辅助写文章"是两件事，
-  且会把侵入面扩大一个量级。
 - **不做多轮对话式追问**。`streamMarkdown` 的 `history` 参数虽已预留，但交互复杂度不属于本轮。
 - **不改既有四个动作的行为**。特别是 Summarise 仍插在开头当引用块（为了列表预览），
   **不改成上游那样追加到文末**——两者语义不同，改了会让 `ai-summary-and-title` 的验收失效。
@@ -153,12 +174,25 @@
 ## Clarifications（待澄清）
 
 - [NEEDS CLARIFICATION: 流式写入如何同时满足"逐字可见"（4.1）与"一步撤销 + 取消不留痕"（4.3/4.4）？
-  → 暂定结论：**生成期间不写进文档**，而是用 CodeMirror 的 `Decoration.widget` 以幽灵文本形式覆盖显示，
-  完成落笔时才 dispatch **一次** 事务。依据：`CodeEditor.tsx` 是受控组件，`value` 变化会触发
-  `changes: {from:0, to:current.length, insert: value}` 的**全文替换**——若按 token 走 store，
-  每个 token 都是一次全文替换，撤销粒度、光标位置、同步请求三样同时崩。幽灵文本方案让
-  4.3（取消=丢弃覆盖层，文档从未被碰）与 4.4（落笔=单次事务）自动成立。设计阶段需实测确认
-  幽灵文本在换行/长文本下的渲染表现。]
+  → **已实测消解**（2026-08-25，headless CodeMirror 实跑）：不用幽灵文本，直接对 `EditorView`
+  增量 dispatch，流式事务全部带 `Transaction.addToHistory.of(false)` 与一个"AI 流式"注解
+  （前者不进撤销历史，后者让 `updateListener` 跳过 `onChange` 从而不触发保存/同步）；
+  取消＝静默撤销整段，落笔＝先静默撤销再用**一次**带 `isolateHistory.of('before')` 的事务重插。
+  依据：`CodeEditor.tsx` 是受控组件，`value` 一变就是 `{from:0,to:全长}` 的**全文替换**——
+  按 token 走 store 会让撤销粒度、光标位置、同步请求三样同时崩。
+  🔴 **实跑推翻了本条的第一版方案**：naive 版（不加 `isolateHistory`）`undoDepth` 只有 1，
+  一次 `Ctrl+Z` 把 AI 生成**和用户之前敲的字一起撤掉**；加隔离后 `undoDepth`=2，一次 undo 只撤 AI 段。
+  取消路径实测文档与 `undoDepth` 与发起前逐项相同。**故隔离是必需项，不是优化。**]
+
+- [NEEDS CLARIFICATION: 图片模型选哪个、返回形状是什么？
+  → 已实测消解（2026-08-25，直接打 Workers AI REST）：选 `@cf/black-forest-labs/flux-1-schnell`，
+  返回 `{result:{image:<base64>,usage}}`，解码后是 **JPEG 1024×1024**、约 670KB（远低于 25MB 附件上限）。
+  **两个坑已实测**：① 同为文生图，`sdxl-lightning` 返回**裸二进制**而非 JSON，且响应头写 `image/png`
+  但 magic bytes 是 JPEG——**头在说谎**，不能信 content-type；② `flux-2-klein-4b` 要 multipart 输入，
+  纯 JSON 直接 400。因此只支持 flux-1-schnell 一个模型（简洁门），并且 Worker 侧对
+  「ReadableStream」与「JSON base64」两种返回都做归一——依据：上一轮 cloudflare-ai-provider
+  就是靠「不赌单一形状」躲过了 chunk 形状问题。
+  ⚠️ **仍未验**：以上是 REST API 的形状，`env.AI.run` **绑定**的返回形状可能不同，实现时必须实测。]
 
 - [NEEDS CLARIFICATION: 「换个语气」「翻译」的具体选项列表由谁定？
   → 暂定结论：语气取 正式/轻松/精简 三项，翻译取 中→英/英→中 两项，其余用「自定义指令」兜底。

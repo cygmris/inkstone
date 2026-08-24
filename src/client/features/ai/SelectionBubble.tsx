@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { EditorView } from '@codemirror/view'
-import { Check, ChevronDown, Languages, Maximize2, Minimize2, SpellCheck, Sparkles, X } from 'lucide-react'
+import { ChevronDown, Languages, Maximize2, Minimize2, SpellCheck, Sparkles } from 'lucide-react'
 import { Menu, type MenuItem } from '../../components/overlay'
 import { t } from '../../lib/i18n'
 import type { WritingPhase } from './use-writing-action'
@@ -64,15 +64,11 @@ export function SelectionBubble({
   phase,
   onAction,
   onCustom,
-  onAccept,
-  onDiscard,
 }: {
   view: EditorView | null
   phase: WritingPhase
   onAction: (action: WritingAction) => void
   onCustom: () => void
-  onAccept: (mode: 'replace-selection' | 'insert-below') => void
-  onDiscard: () => void
 }) {
   const [position, setPosition] = useState<BubblePosition | null>(null)
   const [openMenu, setOpenMenu] = useState<'tone' | 'translate' | null>(null)
@@ -110,15 +106,14 @@ export function SelectionBubble({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
-      if (phase === 'review') onDiscard()
       setPosition(null)
       setOpenMenu(null)
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [phase, onDiscard])
+  }, [])
 
-  if (!view || !position || phase === 'running') return null
+  if (!view || !position || phase !== 'idle') return null
 
   const toneItems: MenuItem[] = TONE_OPTIONS.map((tone) => ({
     id: tone,
@@ -141,23 +136,13 @@ export function SelectionBubble({
         style={{ left: position.left, top: position.top }}
         onMouseDown={(event) => event.preventDefault()}
       >
-        {phase === 'review' ? (
-          <>
-            <BubbleButton icon={<Check size={13} />} label={t('ai.writing_replace')} onClick={() => onAccept('replace-selection')} />
-            <BubbleButton label={t('ai.writing_insert_below')} onClick={() => onAccept('insert-below')} />
-            <BubbleButton icon={<X size={13} />} label={t('ai.writing_discard')} onClick={onDiscard} />
-          </>
-        ) : (
-          <>
-            <Sparkles size={13} className="mx-1 shrink-0 text-[var(--accent)]" />
-            <BubbleButton icon={<Maximize2 size={13} />} label={t('ai.rewrite_longer')} onClick={() => onAction({ kind: 'rewrite', preset: 'longer' })} />
-            <BubbleButton icon={<Minimize2 size={13} />} label={t('ai.rewrite_shorter')} onClick={() => onAction({ kind: 'rewrite', preset: 'shorter' })} />
-            <BubbleButton icon={<SpellCheck size={13} />} label={t('ai.rewrite_grammar')} onClick={() => onAction({ kind: 'rewrite', preset: 'grammar' })} />
-            <BubbleButton ref={toneRef} label={t('ai.rewrite_tone')} trailing onClick={() => setOpenMenu('tone')} />
-            <BubbleButton ref={translateRef} icon={<Languages size={13} />} label={t('ai.rewrite_translate')} trailing onClick={() => setOpenMenu('translate')} />
-            <BubbleButton label={t('ai.rewrite_custom')} onClick={onCustom} />
-          </>
-        )}
+        <Sparkles size={13} className="mx-1 shrink-0 text-[var(--accent)]" />
+        <BubbleButton icon={<Maximize2 size={13} />} label={t('ai.rewrite_longer')} onClick={() => onAction({ kind: 'rewrite', preset: 'longer' })} />
+        <BubbleButton icon={<Minimize2 size={13} />} label={t('ai.rewrite_shorter')} onClick={() => onAction({ kind: 'rewrite', preset: 'shorter' })} />
+        <BubbleButton icon={<SpellCheck size={13} />} label={t('ai.rewrite_grammar')} onClick={() => onAction({ kind: 'rewrite', preset: 'grammar' })} />
+        <BubbleButton ref={toneRef} label={t('ai.rewrite_tone')} trailing onClick={() => setOpenMenu('tone')} />
+        <BubbleButton ref={translateRef} icon={<Languages size={13} />} label={t('ai.rewrite_translate')} trailing onClick={() => setOpenMenu('translate')} />
+        <BubbleButton label={t('ai.rewrite_custom')} onClick={onCustom} />
       </div>
       <Menu anchor={toneRef} open={openMenu === 'tone'} onClose={() => setOpenMenu(null)} items={toneItems} width={160} />
       <Menu anchor={translateRef} open={openMenu === 'translate'} onClose={() => setOpenMenu(null)} items={translateItems} width={160} />

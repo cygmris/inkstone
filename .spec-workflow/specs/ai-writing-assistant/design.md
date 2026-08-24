@@ -2,7 +2,7 @@
 
 ## Overview
 
-三个新动作（选区改写 / 光标处撰写 / 续写）**全部流式写进编辑器**。
+三个文本动作（选区改写 / 光标处撰写 / 续写）**全部流式写进编辑器**，外加**图片生成**。
 
 本设计的重心不在"多加三条提示词"——那是最容易的部分。重心在**流式落笔的事务模型**：
 怎么让"逐字可见"同时满足"取消不留痕""一步撤销""不触发同步"。这三条互相拉扯，
@@ -31,9 +31,12 @@ naive 实现会同时踩坏三样。该模型已在设计阶段**实跑验证**�
 ### Integration Points
 
 - **`CodeEditor.tsx`**：新增一个"AI 流式"注解，`updateListener` 见到它就**不往上报 `onChange`**
-  （需求 4.5）。这是本 spec 对既有文件唯一的行为性改动，约 3 行。
+  （需求 4.5）。约 3 行。
 - **`Workspace.tsx`**：挂载气泡与撰写输入框；`onReady={setView}` 已经把 `EditorView` 交出来了，无需新管道。
-- **无 D1 / 无 Worker / 无 schema 改动。**
+- **`src/worker/routes/ai.ts`**：新增 `POST /api/ai/image` 一个路由（图片生成必须在服务端调 `AI` 绑定）。
+  这是本 spec 对 Worker 的唯一改动，**不新增 D1 表/字段、不碰 credential-vault、不引入新密钥**。
+- **既有附件链路**：生成的图片走 `handlers.uploadFile` → `POST /api/files` → R2 → `Attachment`，
+  **零新存储代码**（该链路已在用，含 25MB 上限与每小时配额）。
 
 ## Architecture
 
@@ -74,7 +77,7 @@ graph TD
 
 ### Modular Design Principles
 
-四个文件各管一件事，互不知道对方的存在：
+每个文件各管一件事，互不知道对方的存在：
 
 | 文件 | 职责 | 不负责 |
 | --- | --- | --- |
@@ -82,8 +85,11 @@ graph TD
 | `writing-prompts.ts` | 系统提示词与动作定义（纯数据 + 纯函数） | 不碰 CodeMirror |
 | `SelectionBubble.tsx` | 选区浮层：定位、快捷操作、子菜单 | 不发请求 |
 | `DraftPrompt.tsx` | 主题输入框 | 不发请求 |
+| `image-request.ts` | 调 `/api/ai/image`、按 magic bytes 定扩展名、产出 `File` | 不碰编辑器、不做 UI |
+| `ImageDialog.tsx` | 提示词输入、预览、重新生成、插入 | 不直接发请求 |
 
-发请求与串联三者的编排放在 `use-writing-action.ts`（一个 hook）。
+发请求与串联的编排放在 `use-writing-action.ts`（文本）与 `ImageDialog` 自身（图片，
+它是一次性请求不是流，没必要再抽一层 hook——反抽象门）。
 
 ## Components and Interfaces
 
@@ -122,12 +128,19 @@ graph TD
 
 ### 3. `features/ai/SelectionBubble.tsx`
 
+> 🔴 **线上验收后修正**：气泡**只负责选动作**，不负责落笔。
+> 初版把「替换选区 / 插入到下方」也放在气泡上，结果撰写与续写**没有选区 → 气泡不渲染 →
+> 生成完的内容永远没有落笔入口**，静默躺在编辑器里（不进历史、不触发保存），
+> 用户看得见却保不住。落笔已移到常驻的 `WritingStatusBar`，
+> 由 `reviewModes(state)` 按动作类型给按钮，且**恒不为空**。
+
 - **Purpose:** 选中文字后浮出的横条
 - **定位:** `view.coordsAtPos(range.head)` 取坐标；**浮在选区上方**（需求"不得遮挡被选中的文字"），
   上方空间不足则翻到下方；视口夹取逻辑照抄 `Menu` 的写法
 - **消失条件:** 选区清空 / 编辑器失焦 / Esc / 无打开笔记（需求 1.5、1.7）
 - **滚动:** 监听编辑器滚动，重算坐标；移出可视区则隐藏（需求 1.6）
 - **Reuses:** `Menu`（点锚点）承载"语气▾/翻译▾"子菜单
+- **不负责:** 落笔（见上方修正）
 
 ### 4. `features/ai/DraftPrompt.tsx`
 
@@ -151,6 +164,41 @@ if (update.docChanged && !external && !fromAi) { cbRef.current.onChange(...) }
 **为什么不复用既有的 `externalValueUpdate`**：它的语义是"来自 props 的回灌"。
 拿它兼指"AI 流式"会让一个名字指两件事——正是 CLAUDE.md 明令避免的重复实体。多一个注解，语义各自诚实。
 
+### 图片生成（与文本走完全不同的路）
+
+文本是"浏览器直连或经 Worker 代理的流"，图片是**一次性请求 + 二进制**，两者不共用管线。
+
+```mermaid
+graph TD
+    A[输入提示词] --> B["POST /api/ai/image<br/>（Worker，requireAuth）"]
+    B --> C["env.AI.run(flux-1-schnell)"]
+    C --> D{返回形状}
+    D -->|ReadableStream| E[原样透传]
+    D -->|"JSON {image: base64}"| F[解码为二进制]
+    E --> G[Response image/jpeg]
+    F --> G
+    G --> H[客户端预览 Blob URL]
+    H -->|重新生成| A
+    H -->|插入| I["File → handlers.uploadFile<br/>→ R2 → Attachment"]
+    I --> J["光标处单次事务插入 ![](url)<br/>isolateHistory=before"]
+```
+
+**为什么两种返回形状都要处理**：实测（2026-08-25，REST）`flux-1-schnell` 返回
+`{result:{image:<base64>,usage}}`，而同为文生图的 `sdxl-lightning` 返回**裸二进制**；
+更坑的是后者响应头写 `image/png` 而 magic bytes 是 JPEG——**content-type 在说谎，不能信**。
+以上是 REST 的形状，**绑定 `env.AI.run` 的形状未验**，因此 Worker 侧对两种都归一。
+这与上一轮 `cloudflare-ai-provider` 处理 chunk 形状的做法一致：**不赌单一形状**。
+
+**只支持一个模型**：`@cf/black-forest-labs/flux-1-schnell`（简洁门）。
+`flux-2-klein-*` 要 multipart 输入，纯 JSON 直接 400，是另一套契约，不纳入。
+
+**供应商门**：当前 provider 是 `ollama` 时该动作**隐藏并说明原因**——
+Ollama 没有文生图能力，这是能力边界，不是"配置一下就能用"，文案必须说清楚，
+否则用户会去设置里找一个不存在的开关。
+
+**输出格式**：实测 JPEG 1024×1024、约 670KB，远低于附件 25MB 上限，无需压缩。
+文件名用提示词的前若干字符做 slug + `.jpg`（**扩展名按 magic bytes 判定，不按响应头**）。
+
 ## Data Models
 
 ### WritingContext
@@ -160,6 +208,15 @@ if (update.docChanged && !external && !fromAi) { cbRef.current.onChange(...) }
 - selection: { text: string; from: number; to: number } | null
 - before: string        // 光标之前的正文，续写用
 - cursor: number
+```
+
+### 图片生成的请求/响应
+
+```
+POST /api/ai/image  (requireAuth)
+- 请求: { prompt: string }            // 非空、长度受限
+- 成功: 200, Content-Type: image/jpeg, 裸二进制
+- 失败: 400 提示词非法 / 429 额度 / 502 上游 / 503 未绑定 AI
 ```
 
 ### 进行态（组件内 state，不落盘）
@@ -192,7 +249,15 @@ if (update.docChanged && !external && !fromAi) { cbRef.current.onChange(...) }
    - **Handling:** 不落笔，提示，回滚
    - **User Impact:** 正文不变
 
-5. **超长输入触发分片**
+5. **图片生成失败 / 额度耗尽**
+   - **Handling:** 复用 `upstreamFailure` 的 429 判据；**失败时绝不调用上传**，不产生空附件
+   - **User Impact:** 看到可操作提示，笔记与附件库都不受影响
+
+6. **当前供应商是 Ollama**
+   - **Handling:** 入口隐藏；若从命令面板触发则明确提示"该动作仅 Cloudflare 供应商可用"
+   - **User Impact:** 知道要切供应商，而不是以为坏了
+
+7. **超长输入触发分片**
    - **Handling:** 沿用 `streamMarkdown` 既有分片；进行态显示分片进度
    - **User Impact:** 与既有弹窗一致的 `Part n of m`
 
@@ -224,20 +289,27 @@ G. 移动端宽度 → 气泡不溢出视口
 
 | 押的 | 值 |
 | --- | --- |
-| 新增文件 | 5 源 + 2 测试 = 7 |
-| 改动既有文件 | 4（`CodeEditor.tsx` / `Workspace.tsx` / `active-editor.ts` / locales×2 算一项） |
-| 新增代码量 | 700–900 行（含测试） |
-| 任务数 | 8 |
+| 新增文件 | 文本 5 源 + 2 测试；图片 2 源 + 1 测试 = **10** |
+| 改动既有文件 | 6（`CodeEditor.tsx` / `Workspace.tsx` / `active-editor.ts` / `EditorToolbar.tsx` / `CommandPalette.tsx` / `worker/routes/ai.ts`；locales×2 另算一项） |
+| 新增代码量 | 1000–1300 行（含测试） |
+| 任务数 | 12 |
 | 押：流式期间 `addToHistory=false` 不产生撤销步 | **已实跑验证**：流式 5 个 token 后 `undoDepth` 仍为 1（未变） |
 | 押：取消路径零痕迹 | **已实跑验证**：静默撤销后文档与 `undoDepth` 与发起前**逐项相同**（`identical: true`） |
 | 押：落笔 = 一步撤销 | **实跑推翻了 naive 版本**：不加 `isolateHistory` 时 `undoDepth` 只有 1，一次 `Ctrl+Z` 把 AI 生成**和用户之前敲的字一起撤掉**；加 `isolateHistory.of('before')` 后 `undoDepth` = 2，一次 undo 只撤 AI 那段。**故隔离是必需项而非优化** |
 | 押：`Menu` 的点锚点够气泡子菜单用 | 已读源码确认支持 `{x, y}` 与视口翻转，**但未实跑** |
 | 押：`coordsAtPos` 在换行/长选区下坐标可用 | **未验**，实现时先做最小验证再铺 UI |
 | 押：气泡不与既有 `search({top:true})` 浮层打架 | **未验**，E2E 时一并看 |
+| 押：把落笔按钮放在气泡上就够了 | **线上验收推翻**：撰写/续写无选区 → 气泡不渲染 → 生成完无法落笔。已改为落笔常驻状态条，气泡只选动作 |
+| 押：`flux-1-schnell` 可用且免费 | **已实跑验证**：REST 返回 200，`{result:{image,usage}}`，JPEG 1024×1024 / 670KB |
+| 押：同类模型返回形状一致 | **实跑推翻**：`sdxl-lightning` 返回裸二进制且 content-type 谎报 `image/png`（实为 JPEG）。故两种形状都归一，扩展名按 magic bytes 判 |
+| 押：`env.AI.run` 绑定的返回形状 == REST 的形状 | **未验**（REST 已验，绑定未验）。任务 10 必须实测，不得照搬 REST 结论 |
+| 押：生成图能直接走既有附件链路 | 已读代码确认 `handlers.uploadFile` 收 `File` 返回 url，**但未实跑** |
+
 
 ## Constitution Gates（宪法自检）
 
-- [x] 简洁门：不做图片生成、不做多轮追问、不做"AI 写作历史"；语气/翻译各只给最小选项集，其余用自定义指令兜底
+- [x] 简洁门：不做多轮追问、不做"AI 写作历史"、不做图片尺寸/风格矩阵（只 1024 方图）；
+      图片只支持一个模型；语气/翻译各只给最小选项集，其余用自定义指令兜底
 - [x] 反抽象门：不为三个动作建策略类，`WritingAction` 是判别联合 + 两个纯函数；不为"未来的第四个动作"留扩展点
 - [x] 复用门：已检索既有实现日志与组件——引擎、错误分类、守卫、`Menu` 点锚点、`primitives` 全部复用，
       唯一新写的是事务模型（既有代码里确实没有）

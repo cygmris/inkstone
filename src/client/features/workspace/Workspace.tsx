@@ -463,8 +463,8 @@ export function Workspace({ mobileLayout = 'edit', onMobileBack, pane = 'active'
 
       {backlinksOpen && paneActive && <BacklinksPanel noteId={note.id}/>}
 
-      <SelectionBubble view={view} phase={writing.state.phase} onAction={(action) => void writing.start(action)} onCustom={() => setIntent('custom')} onAccept={writing.accept} onDiscard={writing.discard}/>
-      <WritingStatusBar state={writing.state} onCancel={writing.cancel}/>
+      <SelectionBubble view={view} phase={writing.state.phase} onAction={(action) => void writing.start(action)} onCustom={() => setIntent('custom')}/>
+      <WritingStatusBar state={writing.state} onCancel={writing.cancel} onAccept={writing.accept} onDiscard={writing.discard}/>
       {intent === 'draft' && (<PromptDialog title={t("ai.draft_title")} description={t("ai.draft_description")} placeholder={t("ai.draft_placeholder")} submitLabel={t("ai.generate")} onSubmit={(topic) => void writing.start({ kind: 'draft', topic })} onClose={() => setIntent(null)}/>)}
       {intent === 'custom' && (<PromptDialog title={t("ai.custom_title")} description={t("ai.custom_description")} placeholder={t("ai.custom_placeholder")} submitLabel={t("ai.generate")} onSubmit={(instruction) => void writing.start({ kind: 'rewrite', preset: 'custom', instruction })} onClose={() => setIntent(null)}/>)}
       {intent === 'image' && (<ImageDialog onInsert={insertGeneratedImage} onClose={() => setIntent(null)}/>)}
