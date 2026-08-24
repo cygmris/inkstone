@@ -1,3 +1,5 @@
+import { CLIENT_HEADER } from '@shared/constants'
+
 const JPEG_MAGIC = [0xff, 0xd8]
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47]
 const MAX_SLUG_CHARS = 40
@@ -35,7 +37,7 @@ export function imageFileName(prompt: string, extension: string): string {
 export async function requestImage(prompt: string, signal?: AbortSignal): Promise<File> {
   const response = await fetch('/api/ai/image', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', [CLIENT_HEADER]: '1' },
     body: JSON.stringify({ prompt }),
     signal,
   })

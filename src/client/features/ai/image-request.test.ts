@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { CLIENT_HEADER } from '@shared/constants'
 import { imageFileName, imageKindOf, promptSlug, requestImage } from './image-request'
 
 const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10])
@@ -76,13 +77,14 @@ describe('requestImage', () => {
     expect(file.name).toBe('a-ginger-cat.png')
   })
 
-  it('posts the prompt to the image endpoint', async () => {
+  it('posts the prompt to the image endpoint with the client header the worker requires', async () => {
     const fetchMock = respondWith(jpeg, 'image/jpeg')
     await requestImage('a prompt')
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('/api/ai/image')
     expect(init.method).toBe('POST')
     expect(JSON.parse(String(init.body))).toEqual({ prompt: 'a prompt' })
+    expect((init.headers as Record<string, string>)[CLIENT_HEADER]).toBe('1')
   })
 
   it('throws a classifiable error carrying the status', async () => {
