@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/ai-writing-assistant/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-08-24T18:52:48.592Z",
+      "trigger": "initial",
+      "approvalId": "approval_1787597568592_axdhgeism",
+      "approvalTitle": "ai-writing-assistant 设计文档"
+    }
+  ]
+}
