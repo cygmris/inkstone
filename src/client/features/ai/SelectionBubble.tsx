@@ -141,7 +141,7 @@ export function SelectionBubble({
         ref={bubbleRef}
         role="toolbar"
         aria-label={t('ai.writing_generating')}
-        className="fixed z-40 flex items-center gap-0.5 overflow-x-auto rounded-[var(--r-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-1 no-scrollbar shadow-[var(--shadow-lg)]"
+        className="fixed z-40 flex items-center gap-0.5 overflow-x-auto rounded-[var(--r-lg)] border border-[var(--border-subtle)] bg-[var(--bg-overlay)] p-1 no-scrollbar shadow-[var(--shadow-pop)]"
         style={{ left: position.left, top: position.top, maxWidth: bubbleMaxWidth(window.innerWidth) }}
         onMouseDown={(event) => event.preventDefault()}
       >
