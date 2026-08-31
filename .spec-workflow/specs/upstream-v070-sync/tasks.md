@@ -18,10 +18,7 @@
 
 - [~] 4. 部署与线上复验
   - File: 无
-  - _Blocked: 已部署（Version 22aa893d）且 **D 项已通过**——未清 Service Worker 自然打开即拿到
-    最新 bundle（index-DR2EYXwg.js 与服务器一致），上游 ec42b77 的离线缓存修复有效。
-    A/B/C 三项卡在**登录态过期**（距上次验证隔了一周），需用户在浏览器里登录一次。
-    登录页本身渲染正常，说明上游新构建可用。_
+  - _Blocked: 已部署 Version 22aa893d，D 项已过（未清 SW 自然打开即拿到最新 bundle index-DR2EYXwg.js，上游 ec42b77 的离线缓存修复有效）；A/B/C 卡在登录态过期，需用户在桌面那个 Chrome 窗口手动登录一次后重跑，登录页渲染正常说明上游新构建可用_
   - A 流式逐字可见（细采样）/ B 一次 Ctrl+Z 只撤 AI 段 / C Prism 代码高亮 / D 不清 SW 也能拿到新版
   - _Requirements: 3.1, 3.2, 3.3_
   - _Prompt: Role: QA | Task: 部署后跑 A–D | Restrictions: A 项采样间隔必须比生成快，否则测不到；验撤销后不要按快捷键「重做」还原（不是本编辑器的重做键，会多撤几步）；测试笔记用完移入回收站；未全过就标 [~] 写明 Blocked | Success: A–D 都有明确结论并记入实现日志_
