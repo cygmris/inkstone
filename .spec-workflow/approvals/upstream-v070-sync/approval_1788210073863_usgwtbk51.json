@@ -1,0 +1,12 @@
+{
+  "id": "approval_1788210073863_usgwtbk51",
+  "title": "upstream-v070-sync 需求",
+  "filePath": ".spec-workflow/specs/upstream-v070-sync/requirements.md",
+  "type": "document",
+  "status": "approved",
+  "createdAt": "2026-08-31T21:01:13.863Z",
+  "category": "spec",
+  "categoryName": "upstream-v070-sync",
+  "respondedAt": "2026-08-31T21:01:13.864Z",
+  "response": "Auto-approved by specloop (mode: auto-with-log)"
+}

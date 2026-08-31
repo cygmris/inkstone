@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest'
 const CLIENT_DIR = join(process.cwd(), 'src/client')
 const STYLES_DIR = join(CLIENT_DIR, 'styles')
 
-const INJECTED_AT_RUNTIME = [/^--shiki-/, /^--code-/]
-const KNOWN_UPSTREAM_GAPS = ['--shadow-soft']
+const INJECTED_AT_RUNTIME = [/^--shiki-/, /^--code-/, /^--app-viewport-/]
+const KNOWN_UPSTREAM_GAPS = ['--shadow-soft', '--danger-soft']
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {

@@ -7,6 +7,13 @@ const allowed = new Map([
     "// The OAuth consent page is a self-contained HTML document with its own",
     "// language switch (cookie-based); it does not use the React i18n layer.",
   ]],
+  ["src/client/editor/codeLanguages.ts", [
+    "// Highlighting removed: no code languages are loaded.",
+    "// Kept as empty array so the editor behaves as plain Markdown without syntax colors.",
+  ]],
+  ["vite.config.ts", [
+    "// Keep optional preview renderers and their language modules behind dynamic-import boundaries.",
+  ]],
   ["src/client/features/graph/GraphPanel.tsx", [
     "// Private browsing or a locked-down browser can reject local preferences.",
   ]],
@@ -15,7 +22,8 @@ const allowed = new Map([
     "// enforces the same minimum); short codes are trivially brute-forced.",
   ]],
   ["src/client/lib/i18n.ts", [
-    "/** Provides typed runtime localization with complete English and Simplified Chinese resources. */",
+    "/** Provides typed runtime localization with on-demand locale loading. */",
+    "// Preload the other locale in background for instant switching, but don't block init",
   ]],
   ["src/client/lib/markdown/renderer.ts", [
     "/** Builds the sanitized Markdown rendering pipeline and its Inkstone-specific syntax extensions. */",

@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/upstream-v070-sync/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-08-31T21:01:13.863Z",
+      "trigger": "initial",
+      "approvalId": "approval_1788210073863_usgwtbk51",
+      "approvalTitle": "upstream-v070-sync 需求"
+    }
+  ]
+}
