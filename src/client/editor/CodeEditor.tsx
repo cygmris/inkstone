@@ -1,19 +1,18 @@
 import { useEffect, useRef } from 'react';
-import { Annotation, EditorState, type Extension } from '@codemirror/state';
-import { EditorView, drawSelection, dropCursor, highlightActiveLine, highlightActiveLineGutter, highlightSpecialChars, keymap, lineNumbers, placeholder as placeholderExt, rectangularSelection, } from '@codemirror/view';
-import { bracketMatching, foldGutter, indentOnInput, indentUnit, syntaxHighlighting, defaultHighlightStyle, } from '@codemirror/language';
+import { Annotation, Compartment, EditorState, type Extension } from '@codemirror/state';
+import { EditorView, drawSelection, dropCursor, keymap, lineNumbers, placeholder as placeholderExt, rectangularSelection, } from '@codemirror/view';
+import { foldGutter, indentOnInput, indentUnit, } from '@codemirror/language';
 import { defaultKeymap, history, historyKeymap, indentWithTab, standardKeymap, } from '@codemirror/commands';
-import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search';
+import { search, searchKeymap } from '@codemirror/search';
 import { acceptCompletion, autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap, } from '@codemirror/autocomplete';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import type { EditorSettings } from '@shared/types';
 import { cn } from '../lib/cn';
-import { codeLanguages } from './codeLanguages';
 import { editorTheme } from './theme';
-import { focusModePlugin, markdownDecorations, typewriterPlugin } from './decorations';
+import { focusModePlugin, markdownDecorations, setFocusMode, typewriterPlugin } from './decorations';
 import { codeFenceSource, tagSource, wikiLinkSource, type CompletionSources } from './completion';
 import { pasteExtension, type PasteHandlers } from './paste';
-import { setHeading, smartEnter, tableTab, toggleBold, toggleBulletList, toggleHighlight, toggleInlineCode, toggleItalic, toggleOrderedList, toggleQuote, toggleStrikethrough, toggleTaskDone, toggleTaskList, } from './commands';
+import { completeCodeFenceOnEnter, setHeading, smartEnter, tableTab, toggleBold, toggleBulletList, toggleHighlight, toggleInlineCode, toggleItalic, toggleOrderedList, toggleQuote, toggleStrikethrough, toggleTaskDone, toggleTaskList, } from './commands';
 import { t } from "../lib/i18n";
 import { aiStreamUpdate } from './ai-stream';
 
@@ -36,6 +35,11 @@ export function CodeEditor({ value, onChange, settings, sources, handlers, onRea
 
     const cbRef = useRef({ onChange, onScroll, onCursorLine, sources, handlers });
     cbRef.current = { onChange, onScroll, onCursorLine, sources, handlers };
+
+    const lineNumbersCompartment = useRef(new Compartment());
+    const tabSizeCompartment = useRef(new Compartment());
+    const placeholderCompartment = useRef(new Compartment());
+
     useEffect(() => {
         const host = hostRef.current;
         if (!host)
@@ -45,17 +49,15 @@ export function CodeEditor({ value, onChange, settings, sources, handlers, onRea
             drawSelection(),
             dropCursor(),
             rectangularSelection(),
-            highlightSpecialChars(),
-            highlightActiveLine(),
-            highlightSelectionMatches(),
-            bracketMatching(),
             closeBrackets(),
             indentOnInput(),
-            indentUnit.of(' '.repeat(settings.tabSize)),
+            tabSizeCompartment.current.of(indentUnit.of(' '.repeat(settings.tabSize))),
             EditorState.allowMultipleSelections.of(true),
             EditorView.lineWrapping,
-            EditorView.contentAttributes.of({ 'aria-label': placeholder }),
-            placeholderExt(placeholder),
+            placeholderCompartment.current.of([
+                placeholderExt(placeholder),
+                EditorView.contentAttributes.of({ 'aria-label': placeholder }),
+            ]),
             search({ top: true }),
             autocompletion({
                 override: [
@@ -71,17 +73,15 @@ export function CodeEditor({ value, onChange, settings, sources, handlers, onRea
             }),
             markdown({
                 base: markdownLanguage,
-                codeLanguages,
                 addKeymap: false,
             }),
-            syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
             editorTheme(),
             markdownDecorations,
             focusModePlugin,
             typewriterPlugin,
             pasteExtension(cbRef.current.handlers),
             keymap.of([
-                { key: 'Enter', run: smartEnter },
+                { key: 'Enter', run: (view) => completeCodeFenceOnEnter(view) || smartEnter(view) },
                 { key: 'Tab', run: (view) => acceptCompletion(view) || tableTab(view) },
                 { key: 'Mod-b', run: toggleBold, preventDefault: true },
                 { key: 'Mod-i', run: toggleItalic, preventDefault: true },
@@ -104,6 +104,11 @@ export function CodeEditor({ value, onChange, settings, sources, handlers, onRea
             keymap.of(standardKeymap),
             keymap.of(defaultKeymap),
             keymap.of([indentWithTab]),
+            lineNumbersCompartment.current.of(
+                settings.lineNumbers
+                    ? [lineNumbers(), foldGutter()]
+                    : [],
+            ),
             EditorView.updateListener.of((update) => {
                 const external = update.transactions.some((transaction) => transaction.annotation(externalValueUpdate));
                 const streaming = update.transactions.some((transaction) => transaction.annotation(aiStreamUpdate));
@@ -121,9 +126,6 @@ export function CodeEditor({ value, onChange, settings, sources, handlers, onRea
                 },
             }),
         ];
-        if (settings.lineNumbers) {
-            extensions.push(lineNumbers(), highlightActiveLineGutter(), foldGutter());
-        }
         const view = new EditorView({
             state: EditorState.create({ doc: value, extensions }),
             parent: host,
@@ -136,9 +138,40 @@ export function CodeEditor({ value, onChange, settings, sources, handlers, onRea
             view.destroy();
             viewRef.current = null;
         };
+    }, []);
 
+    useEffect(() => {
+        const view = viewRef.current;
+        if (!view) return;
+        view.dispatch({
+            effects: lineNumbersCompartment.current.reconfigure(
+                settings.lineNumbers
+                    ? [lineNumbers(), foldGutter()]
+                    : [],
+            ),
+        });
+    }, [settings.lineNumbers]);
 
-    }, [settings.lineNumbers, settings.tabSize, placeholder]);
+    useEffect(() => {
+        const view = viewRef.current;
+        if (!view) return;
+        view.dispatch({
+            effects: tabSizeCompartment.current.reconfigure(
+                indentUnit.of(' '.repeat(settings.tabSize)),
+            ),
+        });
+    }, [settings.tabSize]);
+
+    useEffect(() => {
+        const view = viewRef.current;
+        if (!view) return;
+        view.dispatch({
+            effects: placeholderCompartment.current.reconfigure([
+                placeholderExt(placeholder),
+                EditorView.contentAttributes.of({ 'aria-label': placeholder }),
+            ]),
+        });
+    }, [placeholder]);
 
     useEffect(() => {
         const view = viewRef.current;
@@ -159,5 +192,9 @@ export function CodeEditor({ value, onChange, settings, sources, handlers, onRea
         if (content)
             content.spellcheck = settings.spellcheck;
     }, [settings.spellcheck]);
+
+    useEffect(() => {
+        viewRef.current?.dispatch({ effects: setFocusMode.of(settings.focusMode) });
+    }, [settings.focusMode]);
     return (<div ref={hostRef} className={cn('ink-editor', className)} data-family={settings.fontFamily} data-focus-mode={settings.focusMode} data-typewriter={settings.typewriter}/>);
 }

@@ -5,16 +5,18 @@ import { registerAll } from '../../lib/hotkeys';
 import { useBreakpoint } from '../../lib/hooks';
 import { useSyncEngine } from '../../lib/sync';
 import { Drawer } from '../../components/overlay';
+import { InlineErrorBoundary } from '../../components/ErrorBoundary';
+import { EditorSkeleton } from '../../components/feedback';
 import { PANEL_WIDTHS, useUi } from '../../store/ui';
 import { createContextualNote, useNotes } from '../../store/notes';
 import { useSession } from '../../store/session';
 import { useUpdate } from '../../store/update';
 import { Sidebar } from '../sidebar/Sidebar';
 import { NoteList } from '../list/NoteList';
-import { Workspace } from '../workspace/Workspace';
 import { FloatingSearch } from './FloatingSearch';
 import { Resizer, SplitResizer } from './Resizer';
 import { t } from "../../lib/i18n";
+const Workspace = lazy(() => import('../workspace/Workspace').then((m) => ({ default: m.Workspace })));
 const CommandPalette = lazy(() => import('../command/CommandPalette').then((m) => ({ default: m.CommandPalette })));
 const SettingsPanel = lazy(() => import('../settings/SettingsPanel').then((m) => ({ default: m.SettingsPanel })));
 const ShortcutsPanel = lazy(() => import('../command/ShortcutsPanel').then((m) => ({ default: m.ShortcutsPanel })));
@@ -94,17 +96,19 @@ export function AppShell() {
           </>)}
 
         <main ref={workspaceGroupsRef} className="flex min-w-0 flex-1">
-          {showWorkspaceSplit ? (<>
+          <Suspense fallback={<WorkspaceFallback />}>
+            {showWorkspaceSplit ? (<>
               <div className="min-w-0" style={{ width: `${effectiveWorkspaceSplitRatio * 100}%` }}>
-                <Workspace pane="primary" grouped/>
+                <InlineErrorBoundary><Workspace pane="primary" grouped/></InlineErrorBoundary>
               </div>
               <SplitResizer label={t("shell.resize_note_panes")} containerRef={workspaceGroupsRef} ratio={effectiveWorkspaceSplitRatio} onChange={(workspaceSplitRatio) => setLayout({ workspaceSplitRatio })} onReset={() => setLayout({ workspaceSplitRatio: null })}/>
               <div className="anim-view-content min-w-0 flex-1">
-                <Workspace pane="secondary" grouped/>
+                <InlineErrorBoundary><Workspace pane="secondary" grouped/></InlineErrorBoundary>
               </div>
             </>) : (<div className="min-w-0 flex-1">
-                <Workspace />
+                <InlineErrorBoundary><Workspace /></InlineErrorBoundary>
               </div>)}
+          </Suspense>
         </main>
       </div>
 
@@ -135,7 +139,7 @@ function MobileShell() {
             { id: 'preview' as const, icon: <Eye size={19}/>, label: t("common.preview") },
         ] : []),
     ];
-    return (<div className="relative flex h-full flex-col overflow-hidden bg-[var(--bg-base)] pt-[env(safe-area-inset-top)]">
+    return (<div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--bg-base)] pt-[env(safe-area-inset-top)]">
       <div className="relative min-h-0 flex-1">
         <div aria-hidden={pane !== 'nav'} inert={pane !== 'nav'} data-active={pane === 'nav' || undefined} className="mobile-pane-layer absolute inset-0">
           <Sidebar onCollapse={() => setPane('list')}/>
@@ -144,7 +148,7 @@ function MobileShell() {
           <NoteList />
         </div>
         <div aria-hidden={!notePane} inert={!notePane} data-active={notePane || undefined} data-from="right" className="mobile-pane-layer absolute inset-0">
-          {notePane && activeNoteId && (<Workspace mobileLayout={pane === 'preview' ? 'preview' : 'edit'} onMobileBack={() => setPane('list')}/>) }
+          {notePane && activeNoteId && (<Suspense fallback={<WorkspaceFallback />}><Workspace mobileLayout={pane === 'preview' ? 'preview' : 'edit'} onMobileBack={() => setPane('list')}/></Suspense>) }
         </div>
       </div>
 
@@ -160,6 +164,18 @@ function MobileShell() {
       <OverlayHost />
     </div>);
 }
+function WorkspaceFallback() {
+    return (
+        <div
+            className="h-full min-w-0 flex-1 overflow-hidden bg-[var(--bg-editor)]"
+            aria-busy="true"
+            aria-label={t("workspace.loading_note_content")}
+        >
+            <EditorSkeleton />
+        </div>
+    );
+}
+
 function OverlayHost() {
     const panel = useUi((s) => s.panel);
     const closePanel = useUi((s) => s.closePanel);

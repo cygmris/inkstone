@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -19,6 +20,7 @@ import {
   enhancePreview,
   renderPendingMermaid,
   resetMermaidNode,
+  toggleCodeBlockCollapse,
 } from '../../lib/markdown/enhance'
 import { updateTaskAtSourceLine } from '../../editor/commands'
 import { useUi } from '../../store/ui'
@@ -26,6 +28,8 @@ import { useNotes, findNoteByTitle } from '../../store/notes'
 import { useSession } from '../../store/session'
 import { previewSourceAnchors } from './preview-anchors'
 import { moveMarkdownTabFocus, selectMarkdownTab } from './markdown-tabs'
+import { capturePreviewInteractionState, restorePreviewInteractionState } from './preview-state'
+import { preferredScrollBehavior } from '../../lib/motion'
 
 export interface PreviewProps {
   content: string
@@ -37,7 +41,7 @@ export interface PreviewProps {
   className?: string
 }
 
-export function Preview({
+export const Preview = memo(function Preview({
   content,
   noteId,
   noteTitle,
@@ -65,6 +69,7 @@ export function Preview({
 
   const debounced = useDebounced(content, 90)
   const rendered = useMemo(() => renderMarkdown(debounced), [debounced, locale])
+  const embedContextTitle = rendered.hasEmbeds ? currentTitle : ''
   const [committedHtml, setCommittedHtml] = useState(rendered.html)
   const committedHtmlRef = useRef(committedHtml)
   const committedSourceRef = useRef(debounced)
@@ -137,7 +142,7 @@ export function Preview({
       if (rendered.hasEmbeds) {
         await resolveNoteEmbeds(staging, {
           currentContent: debounced,
-          currentTitle,
+          currentTitle: embedContextTitle,
           isCurrent: () => !cancelled && revision === preparationRef.current,
         })
       }
@@ -145,8 +150,13 @@ export function Preview({
         math: settings.preview.math,
         mermaid: settings.preview.mermaid,
         dark: theme === 'dark',
+        codeBlockCollapseLines: settings.preview.codeBlockCollapse
+          ? settings.preview.codeBlockCollapseLines
+          : 0,
       })
       if (cancelled || revision !== preparationRef.current) return
+
+      restorePreviewInteractionState(staging, capturePreviewInteractionState(hostRef.current))
 
       const nextHtml = staging.innerHTML
       committedSourceRef.current = debounced
@@ -166,13 +176,15 @@ export function Preview({
       cancelled = true
     }
   }, [
-    currentTitle,
     debounced,
+    embedContextTitle,
     rendered.hasEmbeds,
     rendered.html,
     scrollerRef,
     settings.preview.math,
     settings.preview.mermaid,
+    settings.preview.codeBlockCollapse,
+    settings.preview.codeBlockCollapseLines,
     theme,
   ])
 
@@ -185,7 +197,6 @@ export function Preview({
       mermaidRevisionRef.current++
     }
   }, [mermaidEpoch, settings.preview.mermaid, startMermaidRender])
-
 
   useLayoutEffect(() => {
     const snapshot = pendingViewportRef.current
@@ -240,6 +251,12 @@ export function Preview({
           copyResetTimersRef.current.set(copyButton, timer)
         })
         .catch(() => toast({ title: t("preview.could_not_copy"), tone: 'danger' }))
+      return
+    }
+
+    const collapseButton = target.closest<HTMLButtonElement>('[data-code-collapse]')
+    if (collapseButton) {
+      toggleCodeBlockCollapse(collapseButton)
       return
     }
 
@@ -337,7 +354,7 @@ export function Preview({
 
       }
       const heading = hostRef.current?.querySelector(`#${CSS.escape(id)}`)
-      heading?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      heading?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' })
     }
   }
 
@@ -349,7 +366,7 @@ export function Preview({
       return
     }
     const interactiveLink = (event.target as HTMLElement).closest<HTMLElement>(
-      '[data-wikilink], [data-tag]',
+      '[data-wikilink], [data-block-ref], [data-tag]',
     )
     if (interactiveLink && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault()
@@ -374,7 +391,7 @@ export function Preview({
       />
     </div>
   )
-}
+})
 
 function scrollToWikiTarget(
   hostRef: RefObject<HTMLDivElement | null>,
@@ -400,7 +417,7 @@ function scrollToWikiTarget(
 }
 
 function scrollElementIntoView(element: Element | null | undefined): void {
-  element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  element?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'center' })
 }
 
 interface PreviewViewport {
