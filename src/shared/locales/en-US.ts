@@ -669,6 +669,7 @@ export const EN_US_MESSAGES = {
     "ai.rewrite_tone": "Change tone",
     "ai.rewrite_translate": "Translate",
     "ai.rewrite_custom": "Custom instruction",
+    "ai.more_actions": "More actions",
     "ai.tone_formal": "Formal",
     "ai.tone_casual": "Casual",
     "ai.tone_concise": "Concise",

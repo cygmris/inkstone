@@ -48,6 +48,36 @@ describe('bubblePosition', () => {
   })
 })
 
+describe('bubblePosition with an editor ceiling', () => {
+  const EDITOR_TOP = 80
+
+  it('never crosses above the editor content area, which is where the toolbar lives', () => {
+    const head = { left: 600, top: 88, bottom: 108 }
+    const position = bubblePosition(head, VIEWPORT, SIZE, { top: EDITOR_TOP })
+    expect(position.top).toBeGreaterThanOrEqual(EDITOR_TOP)
+  })
+
+  it('flips below when the space above belongs to the toolbar rather than the editor', () => {
+    const head = { left: 600, top: 88, bottom: 108 }
+    expect(bubblePosition(head, VIEWPORT, SIZE, { top: EDITOR_TOP }).below).toBe(true)
+    expect(bubblePosition(head, VIEWPORT, SIZE).below).toBe(false)
+  })
+
+  it('still floats above once the selection is far enough down the editor', () => {
+    const head = { left: 600, top: 400, bottom: 420 }
+    const position = bubblePosition(head, VIEWPORT, SIZE, { top: EDITOR_TOP })
+    expect(position.below).toBe(false)
+    expect(position.top + SIZE.height).toBeLessThanOrEqual(head.top)
+  })
+
+  it('ignores a ceiling above the viewport margin', () => {
+    const head = { left: 600, top: 400, bottom: 420 }
+    const withZero = bubblePosition(head, VIEWPORT, SIZE, { top: 0 })
+    const withDefault = bubblePosition(head, VIEWPORT, SIZE)
+    expect(withZero).toEqual(withDefault)
+  })
+})
+
 describe('bubbleMaxWidth', () => {
   it('never lets the bubble be as wide as the viewport', () => {
     expect(bubbleMaxWidth(390)).toBeLessThan(390)

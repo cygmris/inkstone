@@ -3,11 +3,10 @@ import type { EditorView } from '@codemirror/view';
 import { Blocks, Bold, Braces, ChevronDown, Code, Heading, Highlighter, Image as ImageIcon, Italic, Link2, List, ListOrdered, ListTodo, Minus, Network, Quote, Sigma, Sparkles, Strikethrough, Table, } from 'lucide-react';
 import { IconButton } from '../../components/primitives';
 import { Menu, Tooltip, type MenuItem } from '../../components/overlay';
+import { aiActionItems } from '../ai/ai-action-items';
 import { cn } from '../../lib/cn';
 import { insertAdvancedCodeBlock, insertBlockId, insertCallout, insertCodeBlock, insertDetails, insertFootnote, insertFrontMatter, insertHorizontalRule, insertImage, insertLink, insertMermaid, insertTable, insertTabs, insertTag, insertText, setHeading, toggleBlockReference, toggleBold, toggleBulletList, toggleHighlight, toggleInlineCode, toggleInlineMath, toggleItalic, toggleNoteEmbed, toggleOrderedList, toggleQuote, toggleStrikethrough, toggleTaskList, toggleWikiLink, } from '../../editor/commands';
 import { t } from "../../lib/i18n";
-import { openAiSummarizeForActiveNote, openAiTidyForActiveNote, openAiTitleForActiveNote } from '../ai/open-tidy';
-import { requestWritingIntent } from '../ai/writing-intent';
 export function EditorToolbar({ runCommand, view, onPickImage, mobile = false, }: {
     runCommand?: (command: (target: EditorView) => boolean) => void;
     view?: EditorView | null;
@@ -60,14 +59,7 @@ export function EditorToolbar({ runCommand, view, onPickImage, mobile = false, }
         { id: 'tabs', label: t("common.tabs"), onSelect: run(insertTabs) },
         { id: 'front-matter', label: 'Front Matter', onSelect: run(insertFrontMatter), separatorBefore: true },
     ];
-    const aiItems: MenuItem[] = [
-        { id: 'ai-tidy', label: t("workspace.ai_tidy"), onSelect: openAiTidyForActiveNote },
-        { id: 'ai-summarize', label: t("workspace.ai_summarize"), onSelect: openAiSummarizeForActiveNote },
-        { id: 'ai-title', label: t("workspace.ai_title"), onSelect: openAiTitleForActiveNote },
-        { id: 'ai-draft', label: t("ai.draft_action"), separatorBefore: true, onSelect: () => requestWritingIntent('draft') },
-        { id: 'ai-continue', label: t("ai.continue_action"), onSelect: () => requestWritingIntent('continue') },
-        { id: 'ai-image', label: t("ai.image_action"), onSelect: () => requestWritingIntent('image') },
-    ];
+    const aiItems: MenuItem[] = aiActionItems();
     return (<div className={cn('flex shrink-0 items-center overflow-x-auto border-b border-[var(--border-subtle)] px-2 no-scrollbar', mobile ? 'h-11 gap-1' : 'h-9 gap-0.5')}>
       <Tooltip label={t("workspace.title_748d7d")}>
         <button ref={headingRef} type="button" onClick={() => toggleMenu('heading')} aria-label={t("workspace.title_level")} aria-haspopup="menu" aria-expanded={openMenu === 'heading'} className={cn('inline-flex items-center gap-0.5 rounded-[var(--r-md)] px-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]', mobile ? 'h-9' : 'h-7')}>

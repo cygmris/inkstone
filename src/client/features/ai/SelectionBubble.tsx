@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { EditorView } from '@codemirror/view'
 import { ChevronDown, Languages, Maximize2, Minimize2, SpellCheck, Sparkles } from 'lucide-react'
 import { Menu, type MenuItem } from '../../components/overlay'
+import { aiActionItems } from './ai-action-items'
 import { t } from '../../lib/i18n'
 import type { WritingPhase } from './use-writing-action'
 import { TONE_OPTIONS, TRANSLATE_OPTIONS, type ToneOption, type TranslateOption, type WritingAction } from './writing-prompts'
@@ -35,13 +36,15 @@ export function bubblePosition(
   head: { left: number; top: number; bottom: number },
   viewport: { width: number; height: number },
   size: { width: number; height: number },
+  bounds: { top: number } = { top: BUBBLE_MARGIN },
 ): BubblePosition {
   const width = size.width
-  const below = head.top - size.height - BUBBLE_GAP < BUBBLE_MARGIN
+  const ceiling = Math.max(BUBBLE_MARGIN, bounds.top)
+  const below = head.top - size.height - BUBBLE_GAP < ceiling
   const top = below ? head.bottom + BUBBLE_GAP : head.top - size.height - BUBBLE_GAP
   const maxLeft = viewport.width - width - BUBBLE_MARGIN
   const left = Math.max(BUBBLE_MARGIN, Math.min(head.left - width / 2, Math.max(BUBBLE_MARGIN, maxLeft)))
-  return { left, top: Math.max(BUBBLE_MARGIN, Math.min(top, viewport.height - size.height - BUBBLE_MARGIN)), below }
+  return { left, top: Math.max(ceiling, Math.min(top, viewport.height - size.height - BUBBLE_MARGIN)), below }
 }
 
 function measure(view: EditorView, size: { width: number; height: number }): BubblePosition | null {
@@ -59,6 +62,7 @@ function measure(view: EditorView, size: { width: number; height: number }): Bub
     { left: (start.left + end.left) / 2, top, bottom },
     { width: window.innerWidth, height: window.innerHeight },
     size,
+    { top: scroller.top },
   )
 }
 
@@ -74,9 +78,10 @@ export function SelectionBubble({
   onCustom: () => void
 }) {
   const [position, setPosition] = useState<BubblePosition | null>(null)
-  const [openMenu, setOpenMenu] = useState<'tone' | 'translate' | null>(null)
+  const [openMenu, setOpenMenu] = useState<'tone' | 'translate' | 'more' | null>(null)
   const toneRef = useRef<HTMLButtonElement>(null)
   const translateRef = useRef<HTMLButtonElement>(null)
+  const moreRef = useRef<HTMLButtonElement>(null)
   const bubbleRef = useRef<HTMLDivElement>(null)
 
   const refresh = useCallback(() => {
@@ -152,9 +157,11 @@ export function SelectionBubble({
         <BubbleButton ref={toneRef} label={t('ai.rewrite_tone')} trailing onClick={() => setOpenMenu('tone')} />
         <BubbleButton ref={translateRef} icon={<Languages size={13} />} label={t('ai.rewrite_translate')} trailing onClick={() => setOpenMenu('translate')} />
         <BubbleButton label={t('ai.rewrite_custom')} onClick={onCustom} />
+        <BubbleButton ref={moreRef} label={t('ai.more_actions')} trailing onClick={() => setOpenMenu('more')} />
       </div>
       <Menu anchor={toneRef} open={openMenu === 'tone'} onClose={() => setOpenMenu(null)} items={toneItems} width={160} />
       <Menu anchor={translateRef} open={openMenu === 'translate'} onClose={() => setOpenMenu(null)} items={translateItems} width={160} />
+      <Menu anchor={moreRef} open={openMenu === 'more'} onClose={() => setOpenMenu(null)} items={aiActionItems()} width={176} />
     </>
   )
 }

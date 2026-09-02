@@ -670,6 +670,7 @@ export const ZH_CN_MESSAGES = {
     "ai.rewrite_tone": "换个语气",
     "ai.rewrite_translate": "翻译",
     "ai.rewrite_custom": "自定义指令",
+    "ai.more_actions": "更多",
     "ai.tone_formal": "正式",
     "ai.tone_casual": "轻松",
     "ai.tone_concise": "精简",
