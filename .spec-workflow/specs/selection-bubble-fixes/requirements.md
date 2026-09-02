@@ -1,0 +1,46 @@
+# Requirements Document
+
+## Introduction
+
+选区气泡上线后用户实际使用时提出两点：**一个真 bug + 一个功能缺口**。
+
+## Requirements
+
+### Requirement 1：气泡不得遮挡编辑器工具栏
+
+用户全选（Ctrl+A）时，气泡浮到了编辑器工具栏上面，把工具栏整条挡住。
+
+**根因已实测**：`bubblePosition` 判断"上方有没有空间"时，参照的是**视口顶部**
+（`BUBBLE_MARGIN` = 8），而编辑器内容区顶部在 **y=80**（上面是应用头部与工具栏）。
+全选时选区首行在 y=88，算出 `88 − 36 − 8 = 44`，因 `44 > 8` 判定"上方有空间"，
+于是落在 y=44 —— 正压在工具栏上。**参照系用错了。**
+
+#### Acceptance Criteria
+
+1. WHEN 选区首行贴近编辑器内容区顶部（含全选） THEN 气泡 SHALL NOT 越过内容区上边界
+2. WHEN 上方空间不足 THEN 气泡 SHALL 翻到选区下方，而不是压在工具栏上
+3. 判据 SHALL 是**编辑器内容区的上边界**，不是视口顶部
+4. 既有行为不变：上方有空间时仍浮在选区上方且不遮挡选中文字
+
+### Requirement 2：气泡支持 AI actions 的全部动作
+
+用户要求气泡也能用工具栏 ✨ 菜单里的功能，**以「Change tone」那样的二级菜单交付**。
+
+#### Acceptance Criteria
+
+1. WHEN 气泡显示 THEN SHALL 提供一个二级菜单，包含工具栏 ✨ 菜单的**全部**动作
+2. 该菜单的动作与标签 SHALL 与工具栏**同源**，不得各写一份（否则必然漂移）
+3. 二级菜单 SHALL 复用既有 `Menu`，交互与 Change tone / Translate 一致
+4. 既有六个改写动作 SHALL 保持原样可用
+
+## Non-Functional Requirements
+
+- 定位逻辑仍是纯函数并单测；新参照系要有能反向验证的断言
+- 不得为了加菜单把气泡撑爆移动端视口（既有 `bubbleMaxWidth` 上限仍生效）
+
+## Clarifications（待澄清）
+
+- [NEEDS CLARIFICATION: 全选时气泡必然压住部分选中文字，怎么取舍？
+  → 暂定结论：**优先保证不挡工具栏**，压住少量选中文字可接受。
+  依据：工具栏被挡是功能不可用（点不到），而压住选中文字只是视觉遮挡，
+  且选区高亮仍可见。这与 Notion/Google Docs 的行为一致。]
