@@ -61,6 +61,13 @@ crons = ["0 * * * *", "15,45 * * * *"]
 pattern = "psn-note.byjs.dev"
 custom_domain = true
 
+# 第二个入口（2026-09-03 加）。custom_domain=true 让 wrangler 自建 DNS 记录并签证书，
+# 不用手工去 CF 面板加。两个域名指向同一个 Worker、同一份数据。
+# ⚠️ Cookie/会话按 origin 隔离 —— 两个域名各自要登录一次，这是浏览器行为不是 bug。
+[[routes]]
+pattern = "share-note.yuenlau.org"
+custom_domain = true
+
 [vars]
 APP_NAME = "Inkstone"
 
