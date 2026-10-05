@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/upstream-v080-sync/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-10-05T14:05:11.707Z",
+      "trigger": "initial",
+      "approvalId": "approval_1791209111707_yp50fzoqm",
+      "approvalTitle": "合并上游 inkstone v0.8.0（requirements/design/tasks）"
+    }
+  ]
+}

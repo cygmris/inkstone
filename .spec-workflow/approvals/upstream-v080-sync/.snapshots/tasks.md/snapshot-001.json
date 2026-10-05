@@ -1,0 +1,16 @@
+{
+  "id": "snapshot_1791209111707_uf9jquvx8",
+  "approvalId": "approval_1791209111707_yp50fzoqm",
+  "approvalTitle": "合并上游 inkstone v0.8.0（requirements/design/tasks）",
+  "version": 1,
+  "timestamp": "2026-10-05T14:05:11.707Z",
+  "trigger": "initial",
+  "status": "pending",
+  "content": "# Tasks Document\n\n- [-] 1. 合并上游 v0.8.0 并保留拓扑\n- [ ] 2. 五道门全绿（红项分清归属）\n- [ ] 3. 部署并线上核对数据、迁移与 FTS\n- [ ] 4. 改 update-watch 基线并推送远端\n",
+  "fileStats": {
+    "size": 213,
+    "lines": 7,
+    "lastModified": "2026-10-05T14:05:08.147Z"
+  },
+  "comments": []
+}
