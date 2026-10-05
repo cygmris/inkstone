@@ -27,6 +27,7 @@ const allowed = new Map([
   ]],
   ["src/client/lib/markdown/renderer.ts", [
     "/** Builds the sanitized Markdown rendering pipeline and its Inkstone-specific syntax extensions. */",
+    "/** Parse once with the full document environment so reference links retain their targets. */",
   ]],
   ["src/client/lib/sync.ts", [
     "/**\n   * Applies live setting changes (realtime toggle, poll interval) without\n   * tearing down the engine, its WebSocket, or its leadership claim.\n   */",
@@ -35,6 +36,7 @@ const allowed = new Map([
   ]],
   ["src/client/store/notes.ts", [
     "/** Coordinates the note cache, offline write-ahead log, optimistic updates, and server synchronization. */",
+    "// Keep the current document for fast reads; only slow reads need a loading page.",
   ]],
   ["src/client/store/pwa.ts", [
     "// Reset the flag once the toast is gone, so a later installed worker can",
@@ -47,6 +49,10 @@ const allowed = new Map([
   ]],
   ["src/shared/markdown-utils.ts", [
     "/** Provides pure Markdown analysis shared by the browser and Worker runtimes. */",
+    "// md-example fences are rendered as live markdown by the client renderer,",
+    "// so references inside them count even though stripCodeRegions discards",
+    "// them as ordinary code regions.",
+    "// A closing fence may only be followed by spaces or tabs.",
   ]],
   ["src/worker/backup/snapshot.ts", [
     "/** Produces restorable JSON, readable Markdown, and attachment files for every backup target. */",
@@ -62,6 +68,8 @@ const allowed = new Map([
     "// Existing installations must converge additively. CREATE IF NOT EXISTS",
     "// never rewrites user data; running table creation before indexes also",
     "// lets a partially initialized database recover missing feature tables.",
+    "// Keep the existing indexed text and rowids. The batch either replaces the",
+    "// complete index or rolls back, including when an old installation retries.",
   ]],
   ["src/worker/db/writes.ts", [
     "/** Keeps tags, backlinks, full-text indexes, and change records consistent with note writes. */",
@@ -135,6 +143,15 @@ const allowed = new Map([
     "// remaining pages.",
     "// Never move the client's cursor backwards, even if it reported a",
     "// seq ahead of the server (e.g. data was trimmed).",
+  ]],
+  ["src/client/editor/CodeEditor.tsx", [
+    "// Preserve undo history across mode changes once editing has started.",
+  ]],
+  ["src/client/editor/live-preview.ts", [
+    "// Preserve the source line under the pointer, including rows inside tables/lists.",
+    "/** Decorations change presentation only; all editing, undo, search and saving use Markdown. */",
+    "// Keep typing synchronous and cheap. Reparse after a short idle window; never",
+    "// display stale HTML for a block whose source was touched in the meantime.",
   ]],
 ])
 const found = new Map()
