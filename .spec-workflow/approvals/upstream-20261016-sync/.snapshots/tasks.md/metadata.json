@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/upstream-20261016-sync/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-10-15T21:51:02.672Z",
+      "trigger": "initial",
+      "approvalId": "approval_1792101062672_ogv2ixsyt",
+      "approvalTitle": "同步上游并部署 CF：任务"
+    }
+  ]
+}

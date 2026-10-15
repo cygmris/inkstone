@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/upstream-20261016-sync/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-10-15T21:50:43.600Z",
+      "trigger": "initial",
+      "approvalId": "approval_1792101043600_5mt7f7hmp",
+      "approvalTitle": "同步上游并部署 CF：设计"
+    }
+  ]
+}
