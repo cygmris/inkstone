@@ -1,6 +1,6 @@
 import { lazy, memo, Suspense, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BrainCircuit, Cloud, Database, Info, Keyboard, Palette, RefreshCw, Sparkles, Type, UserRound, X, } from 'lucide-react';
+import { BrainCircuit, Cloud, Database, Info, Keyboard, Link2, Palette, RefreshCw, Sparkles, Type, UserRound, X, } from 'lucide-react';
 import { ACCENTS } from '@shared/constants';
 import { cn } from '../../lib/cn';
 import { Tooltip, useDialogFocus, useEscape, useLockScroll } from '../../components/overlay';
@@ -28,6 +28,7 @@ export const SECTIONS: {
     { id: 'ai', label: () => t("settings.ai"), icon: <Sparkles size={14}/> },
     { id: 'account', label: () => t("settings.account"), icon: <UserRound size={14}/> },
     { id: 'data', label: () => t("settings.data"), icon: <Database size={14}/> },
+    { id: 'shares', label: () => t("share.shared_notes"), icon: <Link2 size={14}/> },
     { id: 'about', label: () => t("settings.about"), icon: <Info size={14}/> },
 ];
 export function SettingsPanel({ onClose }: {

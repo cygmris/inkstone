@@ -311,15 +311,24 @@ console.log('[search filters and stable backlinks]')
   const eligible = await owner.req('POST', '/api/notes', {
     content: '# \u552f\u4e00\u5408\u683c\u641c\u7d22\u7ed3\u679c\n\nfilterneedleunique #filtermatchtag',
   })
-  const filtered = await owner.req(
-    'GET',
-    `/api/search?q=${encodeURIComponent('filterneedleunique tag:filtermatchtag')}&limit=1`,
-  )
+  const filteredSearchPath = `/api/search?q=${encodeURIComponent('filterneedleunique tag:filtermatchtag')}&limit=1`
+  let filtered = await owner.req('GET', filteredSearchPath)
   check('create FTS filter fixtures', noisy.every((item) => item.status === 201) && eligible.status === 201)
+  check(
+    'tag-filtered search immediately includes a fresh write',
+    filtered.status === 200 && filtered.data?.results?.length === 1 &&
+      filtered.data.results[0]?.note?.id === eligible.data?.id,
+    JSON.stringify(filtered),
+  )
+  for (let attempt = 0; attempt < 80 && filtered.status === 200 && filtered.data?.mode !== 'fts'; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    filtered = await owner.req('GET', filteredSearchPath)
+  }
   check(
     'FTS applies tag filters before ranking and limit',
     filtered.status === 200 && filtered.data?.mode === 'fts' &&
       filtered.data?.results?.length === 1 && filtered.data.results[0]?.note?.id === eligible.data?.id,
+    JSON.stringify(filtered),
   )
 
   const [reindexed, editedDuringReindex] = await Promise.all([
@@ -862,14 +871,14 @@ if (noteId) {
       'X-Inkstone-Client': '1',
       Cookie: owner.jar.cookie,
     },
-    body: byteStream(11 * 1024 * 1024),
+    body: byteStream(26 * 1024 * 1024),
     duplex: 'half',
   })
   const streamedError = await streamedOversize.json().catch(() => null)
   check(
     'chunked multipart cannot bypass the actual upload limit',
     streamedOversize.status === 413 && streamedError?.error?.code === 'payload_too_large',
-    `status=${streamedOversize.status}`,
+    `status=${streamedOversize.status} error=${JSON.stringify(streamedError?.error)}`,
   )
 
   const spoofedForm = new FormData()

@@ -37,6 +37,7 @@ const allowed = new Map([
   ["src/client/store/notes.ts", [
     "/** Coordinates the note cache, offline write-ahead log, optimistic updates, and server synchronization. */",
     "// Keep the current document for fast reads; only slow reads need a loading page.",
+    "// Loaded content keeps its revision until the full note arrives.",
   ]],
   ["src/client/store/pwa.ts", [
     "// Reset the flag once the toast is gone, so a later installed worker can",
@@ -153,6 +154,25 @@ const allowed = new Map([
     "// Keep typing synchronous and cheap. Reparse after a short idle window; never",
     "// display stale HTML for a block whose source was touched in the meantime.",
   ]],
+  ["src/client/features/workspace/reading-position.ts", [
+    "// Reading position is optional when browser storage is unavailable.",
+  ]],
+  ["src/shared/constants.ts", [
+    "// D1 limits an entire row to 2,000,000 bytes; reserve room for note metadata.",
+  ]],
+  ["src/worker/attachments/references.ts", [
+    "// Retained versions must remain restorable after unused attachments are pruned.",
+  ]],
+  ["src/worker/lib/oauth-request.ts", [
+    "// Rebuild after consuming the bounded body so the provider can read it once.",
+  ]],
+  ...[
+    "tests/attachment-references.test.ts",
+    "tests/auth-password.test.ts",
+    "tests/export-lease.test.ts",
+    "tests/note-content-limit.test.ts",
+    "tests/oauth-request.test.ts",
+  ].map((file) => [file, ["// @vitest-environment node"]]),
 ])
 const found = new Map()
 const failures = []
