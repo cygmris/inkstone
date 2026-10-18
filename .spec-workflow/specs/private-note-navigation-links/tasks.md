@@ -18,7 +18,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1_
   - _Prompt: Implement the task for spec private-note-navigation-links, first run spec-workflow-guide to get the workflow guide then implement the task: Role: 验证工程师 | Task: 开工标 [-]，跑静态门禁和真实桌面/手机交互 | Restrictions: 不修改生产笔记 | Success: 剪贴板与 URL 实测正确，记录产物；先 log_implementation 再标 [x]_
 
-- [-] 4. 部署 Cloudflare 并完成交付记录
+- [x] 4. 部署 Cloudflare 并完成交付记录
   - File: docs/deployments/20261018-private-note-navigation.md、docs/BACKLOG.md、conclusion.md
   - _Leverage: 既有 Cloudflare 凭据包装和快照脚本、repo-remotes-policy_
   - _Requirements: 3.2, 3.3_
