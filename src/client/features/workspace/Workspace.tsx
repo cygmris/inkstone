@@ -42,6 +42,7 @@ import { useSyncScroll } from './sync-scroll';
 import { captureReadingPosition, readReadingPosition, readingPositionKey, restoreReadingPosition, writeReadingPosition } from './reading-position';
 import { t, useLocale } from "../../lib/i18n";
 import { preferredScrollBehavior } from '../../lib/motion';
+import { getNoteCopyItems } from '../notes/note-copy-items';
 const SPLIT_HANDLE_WIDTH = 1;
 const PREVIEW_BORDER_WIDTH = 1;
 const OUTLINE_WIDTH = 168;
@@ -523,11 +524,11 @@ export function Workspace({ onMobileBack, pane = 'active', grouped = false, }: {
                 <Share2 size={14}/>
               </IconButton>
             </Tooltip>)}
-          {isMobile && (<Tooltip label={t("common.more_actions")} side="left">
+          <Tooltip label={t("common.more_actions")} side="left">
               <IconButton ref={moreButtonRef} label={t("common.more_actions")} size="sm" onClick={() => setMoreMenuOpen(true)}>
                 <MoreHorizontal size={16}/>
               </IconButton>
-            </Tooltip>)}
+            </Tooltip>
           </>)}
         </div>
       </header>
@@ -556,7 +557,7 @@ export function Workspace({ onMobileBack, pane = 'active', grouped = false, }: {
       {intent === 'custom' && (<PromptDialog title={t("ai.custom_title")} description={t("ai.custom_description")} placeholder={t("ai.custom_placeholder")} submitLabel={t("ai.generate")} onSubmit={(instruction) => void writing.start({ kind: 'rewrite', preset: 'custom', instruction })} onClose={() => setIntent(null)}/>)}
       {intent === 'image' && (<ImageDialog onInsert={insertGeneratedImage} onClose={() => setIntent(null)}/>)}
 
-      <Menu anchor={moreButtonRef} open={moreMenuOpen} onClose={() => setMoreMenuOpen(false)} items={grouped ? groupedItems : mobileItems} align="end" width={220}/>
+      <Menu anchor={moreButtonRef} open={moreMenuOpen} onClose={() => setMoreMenuOpen(false)} items={[...getNoteCopyItems(note), ...(grouped ? groupedItems : mobileItems)]} align="end" width={220}/>
       {isMobile && (<Drawer open={mobileOutlineOpen} onClose={() => setMobileOutlineOpen(false)} side="right" width={320} title={t("common.outline")}>
           <Outline headings={headings} scrollerRef={previewScrollerRef} className="max-h-none w-full self-stretch py-3" onSelect={(heading) => {
                 jumpToHeading(heading);

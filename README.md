@@ -37,6 +37,12 @@ Every new account automatically receives two standard starter notes, one in Chin
 | Portability | JSON and ZIP exports, directly readable **Markdown**, attachment export, and **manual or scheduled WebDAV/S3 backups** |
 | Interface | **Desktop and mobile layouts**, **dark/light themes**, accent colors, Simplified Chinese, English, and owner-only update notifications |
 
+## Private note links and navigation
+
+Use the **More actions** menu in the folder tree or note header to copy a title, ID, or note link. In the note list, right-click a row on desktop or use its **More actions** button on mobile. Links use `/n/<id>` and require login and access to the note.
+
+Opening a note or focusing another editor group updates the address bar. Refresh and browser back/forward restore the notes and active group stored in that history entry. Opening a copied note link in a new tab opens that note on its own.
+
 ## Data storage
 
 | Component | Purpose |

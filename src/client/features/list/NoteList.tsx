@@ -1,6 +1,6 @@
 import { APP_SHORTCUTS, NOTE_LIST_SHORTCUTS } from '../../lib/shortcuts';
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { Archive, ArrowDownWideNarrow, CheckSquare2, Columns2, Copy, FileCode, FileDown, FileText, FolderInput, Link2, MoreHorizontal, Pin, PinOff, PanelLeft, Plus, RotateCcw, Search, Star, StarOff, Trash2, X, } from 'lucide-react';
+import { Archive, ArrowDownWideNarrow, CheckSquare2, Columns2, Copy, FileCode, FileDown, FileText, FolderInput, MoreHorizontal, Pin, PinOff, PanelLeft, Plus, RotateCcw, Search, Star, StarOff, Trash2, X, } from 'lucide-react';
 import type { NoteSummary, SearchHit, SortKey, ViewKind } from '@shared/types';
 import { cn } from '../../lib/cn';
 import { groupLabel } from '../../lib/time';
@@ -17,6 +17,7 @@ import { useUi } from '../../store/ui';
 import { createContextualNote, useNotes, useVisibleNotes } from '../../store/notes';
 import { folderPathLabel } from '../../lib/folders';
 import { FolderPicker } from '../folders/FolderPicker';
+import { getNoteCopyItems } from '../notes/note-copy-items';
 import { t, useLocale, type MessageKey } from "../../lib/i18n";
 import { MobileLibraryFilters } from '../shell/MobileLibraryFilters';
 const VIEW_MESSAGE_KEYS: Record<ViewKind, MessageKey> = {
@@ -408,15 +409,6 @@ const NoteRow = memo(function NoteRow({ note, highlight, density, tagColors, pos
             });
         }
     };
-    const copyText = async (value: string, successMessage: 'notes.title_copied' | 'notes.id_copied' | 'notes.direct_link_copied') => {
-        try {
-            await navigator.clipboard.writeText(value);
-            toast({ title: t(successMessage), tone: 'success' });
-        }
-        catch {
-            toast({ title: t('preview.could_not_copy'), tone: 'danger' });
-        }
-    };
     const noteActions: MenuItem[] = inTrash
         ? [
             { id: 'restore', label: t("common.restore"), icon: <RotateCcw size={13}/>, separatorBefore: true, onSelect: () => void restoreNote(note.id) },
@@ -487,9 +479,7 @@ const NoteRow = memo(function NoteRow({ note, highlight, density, tagColors, pos
             },
         ];
     const items: MenuItem[] = [
-        { id: 'copy-title', label: t('notes.copy_title'), icon: <Copy size={13}/>, onSelect: () => void copyText(note.title || t('common.untitled_note'), 'notes.title_copied') },
-        { id: 'copy-id', label: t('notes.copy_id'), icon: <Copy size={13}/>, onSelect: () => void copyText(note.id, 'notes.id_copied') },
-        { id: 'copy-direct-link', label: t('notes.copy_direct_link'), icon: <Link2 size={13}/>, onSelect: () => void copyText(new URL(`/n/${encodeURIComponent(note.id)}`, window.location.origin).href, 'notes.direct_link_copied') },
+        ...getNoteCopyItems(note),
         ...noteActions,
     ];
     const titleParts = splitByRanges(note.title || t("common.untitled_note"), highlight);

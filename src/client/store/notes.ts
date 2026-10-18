@@ -34,6 +34,7 @@ interface NotesState {
         activate?: boolean;
         revealOnMobile?: boolean;
     }) => Promise<void>;
+    cancelPendingNoteNavigation: () => void;
     editTitle: (id: string, title: string) => void;
     editContent: (id: string, content: string) => void;
     flush: (options?: {
@@ -394,6 +395,12 @@ export const useNotes = create<NotesState>((set, get) => ({
             void localDb.dropContent(id);
         }
     },
+    cancelPendingNoteNavigation() {
+        for (const pane of ['primary', 'secondary'] as const) {
+            openSequences[pane]++;
+            latestRequestedNoteIds[pane] = null;
+        }
+    },
     async openNote(id, options) {
         const uiAtRequest = useUi.getState();
         const targetPane = options?.pane ?? (uiAtRequest.workspaceSecondaryNoteId
@@ -592,12 +599,12 @@ export const useNotes = create<NotesState>((set, get) => ({
                 useUi.getState().toast({ title: t("notes.this_note_no_longer_exists"), tone: 'danger' });
                 if (latestRequestedNoteIds[targetPane] === id)
                     latestRequestedNoteIds[targetPane] = null;
-                useUi.getState().removeWorkspaceNote(id);
                 set((s) => {
                     const notes = { ...s.notes };
                     delete notes[id];
                     return { notes };
                 });
+                useUi.getState().removeWorkspaceNote(id);
                 return;
             }
             toastError(err, t("notes.failed_to_open_note"));

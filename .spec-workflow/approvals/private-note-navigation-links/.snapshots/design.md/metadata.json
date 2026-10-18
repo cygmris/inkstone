@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/private-note-navigation-links/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-10-18T09:24:34.525Z",
+      "trigger": "initial",
+      "approvalId": "approval_1792315474525_li0kjut6h",
+      "approvalTitle": "私有笔记导航与复制入口设计"
+    }
+  ]
+}

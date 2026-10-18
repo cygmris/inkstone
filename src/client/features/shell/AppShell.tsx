@@ -21,6 +21,7 @@ import { Resizer, SplitResizer } from './Resizer';
 import { t } from "../../lib/i18n";
 import { SettingsPanel } from '../settings/SettingsPanel';
 import { scheduleSettingsWarmup } from '../settings/sections';
+import { startNoteNavigation } from './note-navigation';
 const Workspace = lazy(() => import('../workspace/Workspace').then((m) => ({ default: m.Workspace })));
 const CommandPalette = lazy(() => import('../command/CommandPalette').then((m) => ({ default: m.CommandPalette })));
 const ShortcutsPanel = lazy(() => import('../command/ShortcutsPanel').then((m) => ({ default: m.ShortcutsPanel })));
@@ -40,18 +41,10 @@ export function AppShell() {
     useGlobalHotkeys();
     const hydrated = useNotes((s) => s.hydrated);
     const loading = useNotes((s) => s.loading);
-    const openNote = useNotes((s) => s.openNote);
-    const deepLinkHandled = useRef(false);
     useEffect(() => {
-        if (!hydrated || loading || deepLinkHandled.current)
-            return;
-        deepLinkHandled.current = true;
-        const match = /^\/n\/([0-9a-hjkmnp-tv-z]{26})\/?$/.exec(location.pathname);
-        if (!match)
-            return;
-        useUi.getState().openExplorer();
-        void openNote(match[1]!);
-    }, [hydrated, loading, openNote]);
+        if (!hydrated || loading || !userId) return;
+        return startNoteNavigation(userId);
+    }, [hydrated, loading, userId]);
     useEffect(() => {
         if (role === 'owner')
             void checkForUpdates();

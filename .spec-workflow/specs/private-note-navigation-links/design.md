@@ -1,0 +1,111 @@
+# Design Document
+
+## Overview
+
+在前端统一三处复制菜单，添加小型 History API 导航适配；不改 Worker、D1 或分享模型。
+
+## Steering Document Alignment
+
+### Technical Standards (tech.md)
+
+遵守 CONTRIBUTING.md：Zustand、现有 Menu、双语 message ID、无新增依赖；保留 AI 编辑器链。
+
+### Project Structure (structure.md)
+
+复制菜单放 features/notes/note-copy-items.tsx；导航适配放 features/shell/note-navigation.ts，由 AppShell 的 effect 管理生命周期。测试沿用 Vitest/jsdom。
+
+## Code Reuse Analysis
+
+### Existing Components to Leverage
+
+- NoteList 原 copyText 和三个菜单项提取为 getNoteCopyItems，供 ExplorerNote、Workspace 复用。
+- Workspace 已有移动/双栏更多菜单；单栏桌面也显示更多按钮。
+- useUi 的工作区字段、useNotes.openNote 的缓存、异步序号与导航变化检测全部保留。
+
+### Integration Points
+
+- AppShell 替换一次性 deepLinkHandled effect；等待 hydrated && !loading 后连接路由。
+- 仅订阅工作区笔记与活跃栏变化；不订阅正文保存事件；copy 不调用分享 API。
+
+## Architecture
+
+交互依据：ui-ux-pro-max 的 Deep Linking、Back Button、键盘菜单/反馈规则。History API 依据 https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-history-pushstate 。
+
+```text
+左侧文件夹树        笔记列表             正文标题栏（每栏）
+  笔记  [⋯]         笔记 [⋯/右键]       标题          [⋯]
+        └──────────────┴─────────────────────┘
+        复制标题 / 复制 ID / 复制笔记链接
+地址栏：/n/当前活跃笔记ID
+```
+
+```mermaid
+flowchart LR
+  A[打开笔记或切换工作区焦点] --> B[useUi 工作区状态]
+  B --> C[比较导航快照]
+  C --> D[pushState 路径和双栏快照]
+  E[首次加载或 popstate] --> F[校验路径 用户和快照]
+  F --> G[同步恢复工作区并加载正文]
+  G --> B
+  G --> H[replaceState 规范化且不追加历史]
+```
+
+### Modular Design Principles
+
+菜单只负责剪贴板；导航只负责 URL/history 和工作区协调；正文仍由现有 store 管理。
+
+## Components and Interfaces
+
+### getNoteCopyItems
+- 输入 Pick<NoteSummary, 'id' | 'title'>；返回 MenuItem[]。
+- 同一 origin，/n/<encoded id>；成功/失败使用现有 toast。
+- 保留 copy-direct-link 标识和 notes.copy_direct_link 键，中文显示“复制笔记链接”，英文“Copy note link”。
+
+### startNoteNavigation
+- 输入当前 userId；返回清理监听器函数。由 AppShell 在数据准备完成后调用。
+- URL 规范格式保持 /n/<activeNoteId>，避免新增 query 参数。
+- history.state.inkstone 保存 userId、activeNoteId、workspacePrimaryNoteId、workspaceSecondaryNoteId、activeWorkspacePane；不存正文。
+- 刷新和历史遍历仅在 userId、路径与快照吻合时恢复双栏；新 tab 的普通笔记链接打开单篇。
+- 首次 / 恢复已有持久化工作区并 replace；返回 / 的历史条目清空工作区。未登录时不挂载，保留深链。
+- 处理 popstate 时同步恢复所有工作区字段、关闭过时浮层，随后调用 openNote 加载；同步恢复阶段抑制订阅写入，避免循环。
+- 沿用 openNote 已有 requestSequence/navigationChanged 机制；补充回归确认旧请求不会覆盖后退/快速切换。
+- 路由恢复先使两栏旧 openSequences 失效，避免同值恢复时旧慢请求抢回页面。API 404 先移除摘要再清理工作区，让历史订阅能准确 replace 失效条目。
+
+## Data Models
+
+仅新增 history.state 的带用户标识工作区快照；沿用 WorkspacePane 类型，不新增数据库结构。
+
+## Error Handling
+
+1. clipboard 拒绝：现有 preview.could_not_copy toast。
+2. 不存在或属于其它用户的笔记：清空工作区、显示笔记不可用反馈、replace 到 /，不自动选择其他笔记。
+3. 历史中另一栏失效：保留仍有效的目标笔记为单栏；目标失效则空状态。
+4. 正文离线/加载失败：保留目标 URL，沿用 Workspace 加载失败与重试；不丢离线草稿。
+5. 回收站笔记仍属于当前用户且摘要存在时，保持应用已有的打开行为，恢复 view=trash；不把 deletedAt 当成永久删除，不额外改变编辑权限。
+
+## Testing Strategy
+
+### Unit Testing
+复制值/成功失败、三处菜单、路由初始化、重复导航、popstate 不 push、双栏刷新、错误路径/用户隔离、清理监听器。
+
+### Integration Testing
+真实 useNotes.openNote 异步竞争、删除与关闭右栏、编辑草稿保持；项目所有必需检查。
+
+### End-to-End Testing
+隔离本地实例登录后用 Chrome 验证桌面三入口、手机菜单、实际剪贴板、前进后退/刷新/双栏、错误链接与匿名登录页。生产核实部署与资源匹配，登录态条件如实记录。
+
+## 本设计押的数（Assumptions to be checked）
+
+| 押的 | 值 |
+| --- | --- |
+| 新增运行依赖 | 0 |
+| Worker/数据库结构变化 | 0 |
+| 导航实现 | 一个适配模块与一个 AppShell effect，预计约 150 行 |
+| 任务数 | 4 个交付任务 |
+
+## Constitution Gates（宪法自检）
+
+- [x] 简洁门：只完成现有待办。
+- [x] 反抽象门：只抽三处真正共用的复制操作。
+- [x] 复用门：已检索上游同步实现日志及当前导航调用链。
+- [x] 精准门：不重构编辑器或 Worker。

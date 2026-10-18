@@ -8,6 +8,7 @@ import { Menu, useContextMenu, type MenuItem } from '../../components/overlay';
 import { useNotes } from '../../store/notes';
 import { useUi } from '../../store/ui';
 import { FolderPicker } from '../folders/FolderPicker';
+import { getNoteCopyItems } from '../notes/note-copy-items';
 
 export function groupExplorerNotes(notes: Record<string, NoteSummary>, folders: Folder[], locale: string): Map<string | null, NoteSummary[]> {
     const folderIds = new Set(folders.map((folder) => folder.id));
@@ -40,6 +41,7 @@ export function ExplorerNote({ note, depth, canOpenToSide }: { note: NoteSummary
         void openNote(note.id, side ? { pane: 'secondary' } : undefined);
     };
     const items: MenuItem[] = [
+        ...getNoteCopyItems(note),
         ...(canOpenToSide ? [{ id: 'side', label: t('notes.open_to_side'), icon: <Columns2 size={13}/>, onSelect: () => open(true) }] : []),
         { id: 'star', label: note.isStarred ? t('common.remove_from_favorites') : t('navigation.favorites'), icon: <Star size={13}/>, onSelect: () => void patchNote(note.id, { isStarred: !note.isStarred }) },
         { id: 'move', label: t('notes.move_to_folder'), icon: <FolderInput size={13}/>, onSelect: () => setMoving(true) },
