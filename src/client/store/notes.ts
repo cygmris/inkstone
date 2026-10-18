@@ -952,6 +952,14 @@ export const useNotes = create<NotesState>((set, get) => ({
         }
     },
     async duplicateNote(id) {
+        try {
+            if (!(await saveDirtyBeforeDestructiveMutation(id, set, get)))
+                throw new Error(t("notes.the_note_body_is_not_safely_synced_so_a_complete_copy_cannot_be_created"));
+        }
+        catch (err) {
+            toastError(err, t("notes.failed_to_create_copy"));
+            return;
+        }
         const source = get().notes[id];
         if (!source)
             return;
@@ -983,7 +991,7 @@ export const useNotes = create<NotesState>((set, get) => ({
             });
             useUi.getState().setActiveNote(copyId);
         }
-        const request = enqueueNoteWriteAfterFlush(id, get, async () => {
+        const request = enqueueNoteWrite(id, async () => {
             if (!(await isNoteSafelySynced(id, set))) {
                 throw new Error(t("notes.the_note_body_is_not_safely_synced_so_a_complete_copy_cannot_be_created"));
             }

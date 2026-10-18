@@ -242,3 +242,46 @@ it.each(['deleteNote', 'purgeNote', 'duplicateNote', 'restoreVersion'] as const)
     expect(mocks.queue).toHaveLength(0)
   },
 )
+
+it('can edit a duplicate while the source autosave is in flight', async () => {
+  vi.resetModules()
+  const { useNotes: freshNotes } = await import('./notes')
+  const { useUi } = await import('./ui')
+  freshNotes.setState({ notes: { [note.id]: note }, contents: { [note.id]: note.content },
+    folders: [], tags: [], cursor: 1, pendingCount: 0, online: true })
+  useUi.getState().setActiveNote(note.id)
+  const sourceSave = deferred<void>()
+  const servers: Record<string, Note> = { [note.id]: { ...note } }
+  mocks.patch.mockImplementation(async (id, patch) => {
+    if (id === note.id) await sourceSave.promise
+    expect(patch.rev).toBe(servers[id].rev)
+    servers[id] = { ...servers[id], ...patch, rev: servers[id].rev + 1 }
+    return servers[id]
+  })
+  mocks.duplicate.mockImplementation(async (id, input) => {
+    servers[input.id] = { ...servers[id], id: input.id, rev: 1 }
+    return servers[input.id]
+  })
+  const unsubscribe = useUi.subscribe((state, before) => {
+    if (state.activeNoteId && state.activeNoteId !== note.id && state.activeNoteId !== before.activeNoteId)
+      freshNotes.getState().editContent(state.activeNoteId, 'edited copy')
+  })
+  try {
+    freshNotes.getState().editContent(note.id, 'source draft')
+    const flush = freshNotes.getState().flush({ immediate: true })
+    await vi.waitFor(() => expect(mocks.patch).toHaveBeenCalledTimes(1))
+    const duplicate = freshNotes.getState().duplicateNote(note.id)
+    sourceSave.resolve()
+    let completed = false
+    void Promise.all([flush, duplicate]).then(() => { completed = true })
+    await vi.waitFor(() => expect(completed).toBe(true), { timeout: 500 })
+    await freshNotes.getState().flush({ immediate: true })
+    const copyId = useUi.getState().activeNoteId!
+    expect(copyId).not.toBe(note.id)
+    expect(servers[note.id].content).toBe('source draft')
+    expect(servers[copyId].content).toBe('edited copy')
+    expect(mocks.queue).toHaveLength(0)
+  } finally {
+    unsubscribe()
+  }
+})
