@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/autosave-conflict-copy/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-10-18T11:48:47.684Z",
+      "trigger": "initial",
+      "approvalId": "approval_1792324127684_pvf1yu09c",
+      "approvalTitle": "自动保存版本推进设计"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/autosave-conflict-copy/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-10-18T11:48:09.570Z",
+      "trigger": "initial",
+      "approvalId": "approval_1792324089570_kd3vbb9rw",
+      "approvalTitle": "修复自动保存假冲突需求"
+    }
+  ]
+}

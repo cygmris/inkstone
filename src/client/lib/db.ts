@@ -19,6 +19,7 @@ const KEY = {
   cursor: 'cursor',
   content: (id: string) => `note:${id}`,
   outbox: 'outbox',
+  outboxReceipt: (id: string) => `outboxReceipt:${id}`,
   outboxReplayLease: 'outboxReplayLease',
   userId: 'userId',
   session: 'session',
@@ -48,6 +49,61 @@ export interface OutboxItem {
   attempts: number
   createdAt: number
   lastError?: string
+}
+
+interface OutboxReceipt {
+  clientId: string
+  noteId: string
+  writeId: string
+  ranges: [number, number][]
+}
+
+function sameOutboxOwner(left: OutboxItem, right: Pick<OutboxItem, 'clientId' | 'noteId'>): boolean {
+  return left.clientId === right.clientId && left.noteId === right.noteId
+}
+
+function receiptFor(value: unknown, item: OutboxItem): OutboxReceipt | undefined {
+  if (!isRecord(value) || value.clientId !== item.clientId || value.noteId !== item.noteId ||
+      typeof value.writeId !== 'string' || !Array.isArray(value.ranges) ||
+      !value.ranges.every((range) => Array.isArray(range) && range.length === 2 &&
+        Number.isSafeInteger(range[0]) && range[0] >= 1 &&
+        Number.isSafeInteger(range[1]) && range[1] > range[0])) return undefined
+  return value as unknown as OutboxReceipt
+}
+
+function acknowledgedRevision(rev: number, receipt: OutboxReceipt | undefined): number {
+  for (const [from, to] of receipt?.ranges ?? []) {
+    if (rev >= from && rev < to) rev = to
+  }
+  return rev
+}
+
+function updateOutboxWithReceipt(
+  id: string,
+  change: (items: OutboxItem[], receipt: unknown) => { items: OutboxItem[]; receipt?: OutboxReceipt },
+): Promise<void> {
+  const outboxKey = userScopedKey(KEY.outbox)
+  const receiptKey = userScopedKey(KEY.outboxReceipt(id))
+  return store('readwrite', (objectStore) => new Promise<void>((resolve, reject) => {
+    const transaction = objectStore.transaction
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = transaction.onabort = () => reject(transaction.error)
+    const outbox = objectStore.get(outboxKey)
+    const receipt = objectStore.get(receiptKey)
+    let remaining = 2
+    const loaded = () => {
+      if (--remaining) return
+      try {
+        const result = change(normalizeOutbox(outbox.result), receipt.result)
+        objectStore.put(result.items, outboxKey)
+        if (result.receipt) objectStore.put(result.receipt, receiptKey)
+      } catch (error) {
+        transaction.abort()
+        reject(error)
+      }
+    }
+    outbox.onsuccess = receipt.onsuccess = loaded
+  }))
 }
 
 export interface CachedNoteContent {
@@ -99,7 +155,8 @@ function userScopedKey(key: string, userId = activeUserId): string {
 
 function isLegacyDataKey(key: unknown): key is string {
   return key === KEY.notes || key === KEY.folders || key === KEY.tags || key === KEY.cursor ||
-    key === KEY.outbox || key === KEY.outboxReplayLease || (typeof key === 'string' && key.startsWith('note:'))
+    key === KEY.outbox || key === KEY.outboxReplayLease ||
+    (typeof key === 'string' && (key.startsWith('note:') || key.startsWith('outboxReceipt:')))
 }
 
 async function migrateLegacyData(userId: string): Promise<void> {
@@ -260,18 +317,43 @@ export const localDb = {
   getOutbox: async (): Promise<OutboxItem[]> => normalizeOutbox(await safeGet<unknown>(userScopedKey(KEY.outbox))),
 
   enqueueOutbox(item: OutboxItem): Promise<void> {
-    return update<OutboxItem[]>(
-      userScopedKey(KEY.outbox),
-      (current) => {
-        const items = normalizeOutbox(current)
-        const previous = items.find((entry) => entry.id === item.id)
-        return [
+    return updateOutboxWithReceipt(item.id, (items, storedReceipt) => {
+      const previous = items.find((entry) => entry.id === item.id && sameOutboxOwner(entry, item))
+      const rev = acknowledgedRevision(
+        Math.max(Number(item.payload.rev), Number(previous?.payload.rev ?? item.payload.rev)),
+        receiptFor(storedReceipt, item),
+      )
+      return {
+        items: [
           ...items.filter((entry) => entry.id !== item.id),
-          { ...item, createdAt: previous?.createdAt ?? item.createdAt },
-        ]
-      },
-      store,
-    )
+          { ...item, createdAt: previous?.createdAt ?? item.createdAt, payload: { ...item.payload, rev } },
+        ],
+      }
+    })
+  },
+
+  completeOutboxWrite(item: OutboxItem, expectedRev: number, nextRev: number): Promise<void> {
+    return updateOutboxWithReceipt(item.id, (items, storedReceipt) => {
+      let receipt = receiptFor(storedReceipt, item)
+      if (Number.isSafeInteger(expectedRev) && expectedRev >= 1 && nextRev === expectedRev + 1) {
+        const ranges: [number, number][] = [...receipt?.ranges ?? [], [expectedRev, nextRev]]
+        ranges.sort((left, right) => left[0] - right[0])
+        const merged: [number, number][] = []
+        for (const range of ranges) {
+          const previous = merged.at(-1)
+          if (previous && previous[1] >= range[0]) previous[1] = Math.max(previous[1], range[1])
+          else merged.push([...range])
+        }
+        receipt = { clientId: item.clientId, noteId: item.noteId, writeId: item.writeId, ranges: merged }
+      }
+      return {
+        receipt,
+        items: items.filter((entry) => entry.id !== item.id || !sameOutboxOwner(entry, item) || entry.writeId !== item.writeId)
+          .map((entry) => entry.id === item.id && sameOutboxOwner(entry, item)
+            ? { ...entry, payload: { ...entry.payload, rev: acknowledgedRevision(Number(entry.payload.rev), receipt) } }
+            : entry),
+      }
+    })
   },
 
   completeOutboxItem(id: string, writeId: string): Promise<void> {
@@ -289,22 +371,20 @@ export const localDb = {
     rev: number,
     preserveVersion = false,
   ): Promise<void> {
-    return update<OutboxItem[]>(
-      userScopedKey(KEY.outbox),
-      (current) => normalizeOutbox(current)
+    return updateOutboxWithReceipt(id, (items, storedReceipt) => ({
+      items: items
         .map((item) => item.id === id && item.writeId === writeId
           ? {
               ...item,
               dependsOnWriteId: undefined,
               payload: {
                 ...item.payload,
-                rev,
+                rev: acknowledgedRevision(Math.max(rev, Number(item.payload.rev)), receiptFor(storedReceipt, item)),
                 ...(preserveVersion ? { preserveVersion: true } : {}),
               },
             }
           : item),
-      store,
-    )
+    }))
   },
 
   setOutboxRecoveryId(id: string, writeId: string, recoveryId: string): Promise<void> {

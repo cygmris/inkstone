@@ -780,8 +780,8 @@ export const useNotes = create<NotesState>((set, get) => ({
             return;
         if (wasOpen)
             useUi.getState().removeWorkspaceNote(id);
-        await enqueueNoteWrite(id, async () => {
-            if (!(await saveDirtyBeforeDestructiveMutation(id, set, get))) {
+        await enqueueNoteWriteAfterFlush(id, get, async () => {
+            if (!(await isNoteSafelySynced(id, set))) {
                 finishNoteMutation(id, mutation);
                 rollbackNoteMutation(id, mutation, set, get);
                 if (wasOpen && get().notes[id])
@@ -852,8 +852,8 @@ export const useNotes = create<NotesState>((set, get) => ({
         }));
         scheduleShellSave(get);
         void localDb.setContent(id, { content, rev: before.rev, updatedAt });
-        return enqueueNoteWrite(id, async () => {
-            if (!(await saveDirtyBeforeDestructiveMutation(id, set, get))) {
+        return enqueueNoteWriteAfterFlush(id, get, async () => {
+            if (!(await isNoteSafelySynced(id, set))) {
                 restoreVersionSnapshot(id, optimistic, before, content, beforeContent, set, get);
                 return false;
             }
@@ -879,8 +879,8 @@ export const useNotes = create<NotesState>((set, get) => ({
         const workspaceBefore = captureWorkspaceState();
         const wasOpen = workspaceContainsNote(id);
         markNotesOptimisticallyPurged([id], set, get);
-        await enqueueNoteWrite(id, async () => {
-            if (!(await saveDirtyBeforeDestructiveMutation(id, set, get))) {
+        await enqueueNoteWriteAfterFlush(id, get, async () => {
+            if (!(await isNoteSafelySynced(id, set))) {
                 restoreOptimisticallyPurgedNotes([{ note: before, content: beforeContent, hadContent }], set, get);
                 if (wasOpen)
                     restoreWorkspaceState(workspaceBefore);
@@ -983,8 +983,8 @@ export const useNotes = create<NotesState>((set, get) => ({
             });
             useUi.getState().setActiveNote(copyId);
         }
-        const request = enqueueNoteWrite(id, async () => {
-            if (!(await saveDirtyBeforeDestructiveMutation(id, set, get))) {
+        const request = enqueueNoteWriteAfterFlush(id, get, async () => {
+            if (!(await isNoteSafelySynced(id, set))) {
                 throw new Error(t("notes.the_note_body_is_not_safely_synced_so_a_complete_copy_cannot_be_created"));
             }
             return api.notes.duplicate(id, { id: copyId });
@@ -1378,6 +1378,9 @@ function enqueueNoteWrite<T>(id: string, operation: () => Promise<T>): Promise<T
     });
     return result;
 }
+function enqueueNoteWriteAfterFlush<T>(id: string, get: () => NotesState, operation: () => Promise<T>): Promise<T> {
+    return get().flush({ immediate: true }).then(() => enqueueNoteWrite(id, operation));
+}
 function beginFolderMutation(entityId: string, restoreMissingEntity: boolean, apply: (folders: Folder[]) => Folder[], set: SetNotesState, get: () => NotesState): PendingFolderMutation {
     const mutation: PendingFolderMutation = { entityId, restoreMissingEntity, before: get().folders, apply };
     pendingFolderMutations.push(mutation);
@@ -1641,7 +1644,7 @@ async function recoverNoteMutation(id: string, mutation: PendingNoteMutation, er
 }
 function advanceDirtyRevision(id: string, expectedRev: number, nextRev: number, get: () => NotesState): void {
     const pending = dirty.get(id);
-    if (!pending || pending.rev !== expectedRev)
+    if (!pending || pending.rev !== expectedRev || nextRev <= expectedRev)
         return;
     const persisted = pending.persisted.then(async (durable) => {
         if (!durable)
@@ -1705,6 +1708,9 @@ async function advanceDependentOutboxWrites(
 }
 async function saveDirtyBeforeDestructiveMutation(id: string, set: SetNotesState, get: () => NotesState): Promise<boolean> {
     await get().flush({ immediate: true });
+    return isNoteSafelySynced(id, set);
+}
+async function isNoteSafelySynced(id: string, set: SetNotesState): Promise<boolean> {
     if (dirty.has(id)) {
         set((state) => ({ saveStatus: state.online ? 'dirty' : 'offline' }));
         return false;
@@ -2007,9 +2013,12 @@ function sortOutboxForReplay(items: OutboxItem[]): OutboxItem[] {
         visit(item);
     return result;
 }
-async function completeOutboxQuietly(id: string, writeId: string): Promise<boolean> {
+async function completeOutboxQuietly(id: string, writeId: string, saved?: { item: OutboxItem; expectedRev: number; nextRev: number }): Promise<boolean> {
     try {
-        await localDb.completeOutboxItem(id, writeId);
+        if (saved)
+            await localDb.completeOutboxWrite(saved.item, saved.expectedRev, saved.nextRev);
+        else
+            await localDb.completeOutboxItem(id, writeId);
         return true;
     }
     catch {
@@ -2136,44 +2145,53 @@ async function replayOutboxNow(get: () => NotesState, set: SetNotesState): Promi
             const contentDirty = latestLocal?.contentDirty ?? item.payload.contentDirty !== false;
             const queuedTitle = latestLocal?.title ?? item.payload.title;
             const title = typeof queuedTitle === 'string' ? queuedTitle : undefined;
-            const rev = latestLocal?.rev ?? item.payload.rev;
+            let rev = latestLocal?.rev ?? item.payload.rev;
             if (typeof content !== 'string' || !Number.isInteger(rev) || (rev as number) < 1) {
                 await localDb.markOutboxFailure(item.id, item.writeId, 'invalid offline journal payload').catch(() => { });
                 continue;
             }
             try {
-                const saved = await api.notes.patch(item.noteId, {
-                    rev: rev as number,
-                    ...(contentDirty ? { content } : {}),
-                    ...(typeof title === 'string' ? { title } : {}),
-                    ...(item.payload.preserveVersion === true ? { preserveVersion: true } : {}),
-                });
-                if (item.clientId === CLIENT_ID)
-                    await settleSavedPatch(item.noteId, { content, writeId: item.writeId }, saved, set, get);
-                else
-                    adoptNote(saved, set, get);
-                if (typeof title === 'string')
-                    void get().pull({ force: true });
-                await advanceDependentOutboxWrites(
-                    item.noteId,
-                    item.writeId,
-                    rev as number,
-                    saved.rev,
-                    get,
-                    true,
-                    batch,
-                );
-                const completed = await completeOutboxQuietly(item.id, item.writeId);
-                if (completed) {
-                    publishOutboxResult(item, {
-                        outcome: 'saved',
-                        rev: saved.rev,
-                        updatedAt: saved.updatedAt,
-                        savedTitle: saved.title,
-                        ...(!contentDirty && saved.content !== content ? { savedNote: saved } : {}),
+                await enqueueNoteWrite(item.noteId, async () => {
+                    const pending = item.clientId === CLIENT_ID ? dirty.get(item.noteId) : undefined;
+                    if (pending?.queueId === item.id)
+                        rev = Math.max(rev as number, pending.rev);
+                    const durable = (await localDb.getOutbox()).find((entry) => entry.id === item.id &&
+                        entry.clientId === item.clientId && entry.noteId === item.noteId);
+                    if (Number.isInteger(durable?.payload.rev))
+                        rev = Math.max(rev as number, durable!.payload.rev as number);
+                    const saved = await api.notes.patch(item.noteId, {
+                        rev: rev as number,
+                        ...(contentDirty ? { content } : {}),
+                        ...(typeof title === 'string' ? { title } : {}),
+                        ...(item.payload.preserveVersion === true ? { preserveVersion: true } : {}),
                     });
-                    set({ lastSavedAt: Date.now(), online: true });
-                }
+                    if (item.clientId === CLIENT_ID)
+                        await settleSavedPatch(item.noteId, { content, writeId: item.writeId }, saved, set, get);
+                    else
+                        adoptNote(saved, set, get);
+                    if (typeof title === 'string')
+                        void get().pull({ force: true });
+                    await advanceDependentOutboxWrites(
+                        item.noteId,
+                        item.writeId,
+                        rev as number,
+                        saved.rev,
+                        get,
+                        true,
+                        batch,
+                    );
+                    const completed = await completeOutboxQuietly(item.id, item.writeId, { item, expectedRev: rev as number, nextRev: saved.rev });
+                    if (completed) {
+                        publishOutboxResult(item, {
+                            outcome: 'saved',
+                            rev: saved.rev,
+                            updatedAt: saved.updatedAt,
+                            savedTitle: saved.title,
+                            ...(!contentDirty && saved.content !== content ? { savedNote: saved } : {}),
+                        });
+                        set({ lastSavedAt: Date.now(), online: true });
+                    }
+                });
             }
             catch (err) {
                 if (err instanceof ApiError && err.isConflict) {
