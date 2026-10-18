@@ -12,7 +12,7 @@
   - Files: tests、docs/deployments/20261018-autosave-conflict-copy.md
   - _Requirements: 1, 2, 3_
   - 单页新建编辑、延迟保存、双页回放、项目门禁和隔离 API E2E。
-- [-] 4. 备份并发布 Cloudflare
+- [x] 4. 备份并发布 Cloudflare
   - Files: docs/deployments/20261018-autosave-conflict-copy.md、conclusion.md、docs/BACKLOG.md
   - _Requirements: 2, 3_
   - 备份生产数据，发布并核实版本/资源/权限，提交及远端备份；先记录 implementation log 再完成任务。
